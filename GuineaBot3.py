@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import os
-import Rewarder as r
 import gc
 import pickle
 import time
