@@ -1,0 +1,9 @@
+berserk
+requests
+python-chess
+stockfish
+timeout-decorator
+torch
+numpy
+matplotlib
+ipython
