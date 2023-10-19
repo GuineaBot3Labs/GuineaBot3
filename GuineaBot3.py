@@ -317,6 +317,7 @@ try:
             self.session = requests.Session()
             self.session.headers.update({"Authorization": f"Bearer YOUR-ACCESS-KEY"})
             self.token = 'YOUR-ACCESS-KEY'
+            self.name = 'YOUR-USER-NAME'
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
             self.game_id = None
@@ -871,11 +872,11 @@ try:
                     threading.Thread(target=lambda: setattr(self, 'opponent_move', self.stream_game(board)))
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
