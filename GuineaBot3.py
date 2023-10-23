@@ -785,7 +785,10 @@ try:
                 current_q_values = self.model(state_batch).view(-1, 4672).to('cuda:0')
                 updated_q_values = current_q_values.clone()
                 for i in range(batch_size):
-                        action_index = self.move_to_index(board, batch[i][1])  # Extract the action from the batch
+                        try:
+                            action_index = self.move_to_index(board, batch[i][1])  # Extract the action from the batch
+                        except Exception:
+                            action_index = self.move_to_index(board, batch[i])
                         updated_q_values[i, action_index] = targets[i]
                 
                 loss = self.loss_fn(updated_q_values, current_q_values)
