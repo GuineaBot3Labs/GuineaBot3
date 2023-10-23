@@ -751,71 +751,74 @@ try:
 
 
 
-
         def replay(self, batch_size, board):
-                print("DEBUG: actually doing what I am supposed to...")
-                
-                long_term_batch = random.sample(self.memory, batch_size // 2)
-                short_term_batch = random.sample(self.short_term_memory, min(len(self.short_term_memory), batch_size // 2))
-                batch = long_term_batch + short_term_batch
+            print("DEBUG: actually doing what I am supposed to...")
+            
+            num_short_term = len(self.short_term_memory)
+            num_long_term = batch_size - num_short_term
+            
+            if len(self.memory) < num_long_term:
+                print("Not enough long-term memories for training")
+                return
+            
+            long_term_batch = random.sample(self.memory, num_long_term)
+            short_term_batch = self.short_term_memory
+            
+            batch = long_term_batch + short_term_batch
 
-                # Convert your individual samples into batch tensors
-                state_batch = torch.cat([torch.tensor(s, dtype=torch.float).to('cuda:0') for s, _, _, _, _ in batch], dim=0)
-                next_state_batch = torch.cat([torch.tensor(ns, dtype=torch.float).to('cuda:0') for _, _, _, ns, _ in batch], dim=0)
+            state_batch = torch.cat([s.clone().detach().to('cuda:0') for s, _, _, _, _ in batch], dim=0)
+            next_state_batch = torch.cat([ns.clone().detach().to('cuda:0') for _, _, _, ns, _ in batch], dim=0)
 
-                reward_batch = torch.tensor([r for _, _, r, _, _ in batch], dtype=torch.float).to('cuda:0')
-                done_batch = torch.tensor([float(d) for _, _, _, _, d in batch], dtype=torch.float).to('cuda:0')
+            reward_batch = torch.tensor([r for _, _, r, _, _ in batch], dtype=torch.float).to('cuda:0')
+            done_batch = torch.tensor([float(d) for _, _, _, _, d in batch], dtype=torch.float).to('cuda:0')
 
-                # Compute your target across the entire batch
-                with torch.no_grad():
-                        next_state_q_values = self.target_model(next_state_batch).view(-1, 4672)  # Assuming 4672 as the output size
+            with torch.no_grad():
+                next_state_q_values = self.target_model(next_state_batch).view(-1, 4672)
 
-                # Calculate best_next_action_index and target for each sample in the batch
-                targets = torch.zeros(batch_size).to('cuda:0')
-                for i in range(batch_size):
-                        if done_batch[i]:
-                                targets[i] = reward_batch[i]
-                        else:
-                                next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
-                                next_state_legal_q_values = [next_state_q_values[i, idx] for idx in next_state_legal_move_indices if idx < 4672]
-                                best_next_action_index = next_state_legal_move_indices[torch.argmax(torch.tensor(next_state_legal_q_values)).item()]
-                                targets[i] = reward_batch[i] + self.gamma * next_state_q_values[i, best_next_action_index]
+            targets = torch.zeros(batch_size).to('cuda:0')
+            for i in range(min(batch_size, done_batch.size(0))): 
+                if done_batch[i]:
+                    targets[i] = reward_batch[i]
+                else:
+                    next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
+                    next_state_legal_q_values = [next_state_q_values[i, idx] for idx in next_state_legal_move_indices if idx < 4672]
+                    best_next_action_index = next_state_legal_move_indices[torch.argmax(torch.tensor(next_state_legal_q_values)).item()]
+                    targets[i] = reward_batch[i] + self.gamma * next_state_q_values[i, best_next_action_index]
 
-                # Compute loss, backpropagation, and optimization across the entire batch
-                current_q_values = self.model(state_batch).view(-1, 4672).to('cuda:0')
-                updated_q_values = current_q_values.clone()
-                for i in range(batch_size):
-                        try:
-                            action_index = self.move_to_index(board, batch[i][1])  # Extract the action from the batch
-                        except Exception:
-                            action_index = self.move_to_index(board, batch[i])
-                        updated_q_values[i, action_index] = targets[i]
-                
-                loss = self.loss_fn(updated_q_values, current_q_values)
-                self.optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                self.optimizer.step()
+            current_q_values = self.model(state_batch).view(-1, 4672).to('cuda:0')
+            updated_q_values = current_q_values.clone()
+            for i in range(batch_size):
+                try:
+                    action_index = self.move_to_index(board, batch[i][1])
+                except IndexError:
+                    action_index = self.move_to_index(board, batch[i])
+                updated_q_values[i, action_index] = targets[i]
+            
+            loss = self.loss_fn(updated_q_values, current_q_values)
+            self.optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.optimizer.step()
 
-                if self.epsilon > self.epsilon_min:
-                        self.epsilon *= self.epsilon_decay
+            if self.epsilon > self.epsilon_min:
+                self.epsilon *= self.epsilon_decay
 
-                # Save training data to a binary file
-                with open("trainingdata.bin", "ab") as f:
-                        pickle.dump({
-                                'memory': self.memory,
-                                'short_term_memory': self.short_term_memory,
-                                'epsilon': self.epsilon,
-                                'epsilon_min': self.epsilon_min,
-                                'epsilon_decay': self.epsilon_decay
-                        }, f)
-                
-                if random.randint(0, 1) < 0.03:
-                        self.model.module.mutate()
-                        self.target_model.module.mutate()
+            with open("trainingdata.bin", "ab") as f:
+                pickle.dump({
+                    'memory': self.memory,
+                    'short_term_memory': self.short_term_memory,
+                    'epsilon': self.epsilon,
+                    'epsilon_min': self.epsilon_min,
+                    'epsilon_decay': self.epsilon_decay
+                }, f)
+            
+            if random.randint(0, 1) < 0.03:
+                self.model.module.mutate()
+                self.target_model.module.mutate()
 
-                print("DONE!")
+            print("DONE!")
+
 
 
 
