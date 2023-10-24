@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import os
+import Rewarder as r
 import gc
 import pickle
 import time
@@ -286,7 +287,7 @@ try:
             self.to('cuda:0')
 
     class DQNAgent:
-        def __init__(self, alpha=0.01, gamma=0.97, epsilon=0.7, epsilon_min=0.001, epsilon_decay=0.995):
+        def __init__(self, alpha=0.003, gamma=0.97, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995):
             self.alpha = alpha
             self.gamma = gamma
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
@@ -314,9 +315,8 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer YOUR-ACCESS-KEY"})
-            self.token = 'YOUR-ACCESS-KEY'
-            self.name = 'YOUR-USER-NAME'
+            self.session.headers.update({"Authorization": f"Bearer lip_D3yKCVwoB6tr9JWTrr0W"})
+            self.token = 'lip_9O4pbzMp6TC73i8JOwr8'
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
             self.game_id = None
@@ -354,8 +354,8 @@ try:
             checkpoint = torch.load(model_path)
             self.model.train()
             self.target_model.train()
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-            self.target_model.load_state_dict(checkpoint['target_model_state_dict'])
+            self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+            self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.model.eval()
             self.target_model.eval()
@@ -528,8 +528,8 @@ try:
                 new_state_dict[name] = v
 
             # Load the state dictionary into the model
-            self.model.load_state_dict(new_state_dict)
-            self.target_model.load_state_dict(new_state_dict)
+            self.model.load_state_dict(new_state_dict, strict=False)
+            self.target_model.load_state_dict(new_state_dict, strict=False)
             self.update_model()
             self.model.eval()
             self.target_model.eval()
@@ -634,6 +634,7 @@ try:
                                         best_move = self.choose_actionrandom(state, legal_moves, board)
                                         return best_move
                                 else:
+                                        print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
                                         state = self.board_to_state(board)
@@ -755,7 +756,7 @@ try:
             print("DEBUG: actually doing what I am supposed to...")
             
             num_short_term = len(self.short_term_memory)
-            num_long_term = batch_size - num_short_term
+            num_long_term = batch_size
             
             if len(self.memory) < num_long_term:
                 print("Not enough long-term memories for training")
@@ -767,13 +768,21 @@ try:
             batch = long_term_batch + short_term_batch
 
             state_batch = torch.cat([s.clone().detach().to('cuda:0') for s, _, _, _, _ in batch], dim=0)
+            print(f"DEBUG: state_batch contains NaN: {torch.isnan(state_batch).any()}")
+
             next_state_batch = torch.cat([ns.clone().detach().to('cuda:0') for _, _, _, ns, _ in batch], dim=0)
+            print(f"DEBUG: next_state_batch contains NaN: {torch.isnan(next_state_batch).any()}")
 
             reward_batch = torch.tensor([r for _, _, r, _, _ in batch], dtype=torch.float).to('cuda:0')
+            print(f"DEBUG: reward_batch contains NaN: {torch.isnan(reward_batch).any()}")
+            
             done_batch = torch.tensor([float(d) for _, _, _, _, d in batch], dtype=torch.float).to('cuda:0')
+            print(f"DEBUG: done_batch contains NaN: {torch.isnan(done_batch).any()}")
+
 
             with torch.no_grad():
                 next_state_q_values = self.target_model(next_state_batch).view(-1, 4672)
+            print(f"DEBUG: next_state_q_values contains NaN: {torch.isnan(next_state_q_values).any()}")
 
             targets = torch.zeros(batch_size).to('cuda:0')
             for i in range(min(batch_size, done_batch.size(0))): 
@@ -877,11 +886,11 @@ try:
                     threading.Thread(target=lambda: setattr(self, 'opponent_move', self.stream_game(board)))
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
@@ -890,7 +899,7 @@ try:
                     
 
 
-                    while not board.is_checkmate() and not board.is_game_over() and not board.is_stalemate() and not board.is_insufficient_material() and not board.is_seventyfive_moves() and not board.can_claim_threefold_repetition() and not board.is_variant_draw() and not self.game_over == True:
+                    while not board.is_checkmate() and not board.is_game_over() and not board.is_stalemate() and not board.is_insufficient_material() and not board.is_seventyfive_moves() and not board.is_variant_draw() and not self.game_over == True:
                         if board.turn == self.color:
                             self.repeat_count = 0
                             legal_moves = list(board.legal_moves)
