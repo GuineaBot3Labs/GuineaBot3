@@ -51,10 +51,15 @@ try:
 
             # Apply attention
             x, _ = self.attention1(x, x, x)
+            print("DEBUG: Checking for NaN in Attention input1:", torch.isnan(x).any())
             x, _ = self.attention2(x, x, x)
+            print("DEBUG: Checking for NaN in Attention hidden1:", torch.isnan(x).any())
             x, _ = self.attention3(x, x, x)
+            print("DEBUG: Checking for NaN in Attention hidden2:", torch.isnan(x).any())
             x, _ = self.attention4(x, x, x)
+            print("DEBUG: Checking for NaN in Attention hidden3:", torch.isnan(x).any())
             x, _ = self.attention5(x, x, x)
+            print("DEBUG: Checking for NaN in Attention output1:", torch.isnan(x).any())
 
 
             # Combine attention outputs (you can also concatenate or use other methods)
@@ -93,6 +98,7 @@ try:
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
+                
             fc_input_size = x.numel()  # Total number of elements in 'x'
 
             # Fully connected layers and their corresponding Batch Normalization layers
@@ -117,7 +123,7 @@ try:
             for conv, bn in zip(self.convs, self.conv_bns):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
+            print("DEBUG: Checking for NaN in conv output:", torch.isnan(x).any())
             # Calculate the input size for the first fully connected layer
             fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
 
@@ -136,6 +142,7 @@ try:
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_bns):
                 x = F.relu(bn(fc(x)))
+            print("DEBUG: Checking for NaN in fc input1:", torch.isnan(x).any())
             print(f"Shape of x after FC layers: {x.shape}")
 
             # Output layer
@@ -144,6 +151,7 @@ try:
             return x
             
         def mutate(self):
+        
             self.to('cuda:0')
             min_fcs = 13  # Minimum number of fully connected layers
             max_fcs = 26  # Maximum number of fully connected layers
@@ -175,6 +183,8 @@ try:
                         param += torch.randn_like(param) * 0.5
 
             self.to('cuda:0')
+            
+
 
     class TargetChessNet(nn.Module):
         def __init__(self, num_convs=3, num_fcs=14):
