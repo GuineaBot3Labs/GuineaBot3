@@ -123,7 +123,9 @@ try:
             for conv, bn in zip(self.convs, self.conv_bns):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            print("DEBUG: Checking for NaN in conv output:", torch.isnan(x).any())
+                print("Max value after Conv Layer:", x.abs().max().item())
+
+                print("DEBUG: Checking for NaN in Conv Layer:", torch.isnan(x).any())
             # Calculate the input size for the first fully connected layer
             fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
 
@@ -142,12 +144,18 @@ try:
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_bns):
                 x = F.relu(bn(fc(x)))
-            print("DEBUG: Checking for NaN in fc input1:", torch.isnan(x).any())
+                print("Max value after fc Layer:", x.abs().max().item())
+                print("DEBUG: Checking for NaN in fc layer:", torch.isnan(x).any())
             print(f"Shape of x after FC layers: {x.shape}")
 
             # Output layer
             x = self.output_layer(x)
+            print("Max value after fc Layer:", x.abs().max().item())
+            print("DEBUG: Checking for NaN in neural network output:", torch.isnan(x).any())
+            print(f"Shape of x after Output Layer: {x.shape}")
 
+
+            
             return x
             
         def mutate(self):
@@ -325,8 +333,9 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer lip_D3yKCVwoB6tr9JWTrr0W"})
-            self.token = 'lip_9O4pbzMp6TC73i8JOwr8'
+            self.session.headers.update({"Authorization": f"Bearer {self.token}"})
+            self.token = 'YOUR-TOKEN-HERE'
+            self.name = 'YOUR-USERNAME-HERE' # doesn't really matter, just for customization.
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
             self.game_id = None
@@ -417,13 +426,14 @@ try:
                         
                         print("checking checkpoint 3...")
                         if game_status == 'stalemate':
-                            board.set(self.backupfen)
+                            board.set_fen(self.backupfen)
                             print("Game is over. Pausing for 5 seconds.")
                             self.is_stalemate = True
+                            self.is_draw = True
                         
                         print("checking checkpoint 4...")
                         if game_status == 'aborted':
-                            board.set(self.backupfen)
+                            board.set_fen(self.backupfen)
                             print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
 
@@ -436,6 +446,7 @@ try:
                         if game_status == 'resign':
                             print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
+                            self.is_draw = True
                             time.sleep(5)                        
                         print("checking checkpoint 5...")
                         self.repeat_count += 1
@@ -813,11 +824,18 @@ try:
                     action_index = self.move_to_index(board, batch[i])
                 updated_q_values[i, action_index] = targets[i]
             
+            print(updated_q_values)  # Checks for NaN in updated_q_values
+            print(current_q_values)  # Checks for NaN in current_q_values
+
             loss = self.loss_fn(updated_q_values, current_q_values)
+            if torch.isnan(loss).any() or torch.isinf(loss).any():
+                print("NaN or Inf found in loss:", loss.item())
+            else:
+                print("Loss value:", loss.item())
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=0.8)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.8)
             self.optimizer.step()
 
             if self.epsilon > self.epsilon_min:
@@ -893,14 +911,13 @@ try:
                     self.repeat_count = 0
                     self.get_game(board)
                     board.turn = chess.WHITE
-                    threading.Thread(target=lambda: setattr(self, 'opponent_move', self.stream_game(board)))
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
@@ -947,11 +964,12 @@ try:
                                             break
 
                       
-                                    except Exception:
-                                        print("stream_game probably repeated, skipping and stopping game...")
+                                    except Exception as e:
+                                        print(f"something happened, checking: {e}")
                                         if self.error == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
+                                                self.client.bots.resign_game(self.game_id)
                                             except Exception:
                                                 self.Last_Move = None
                                                 self.lastfen = None
@@ -961,7 +979,7 @@ try:
                                                     self.game_id = None
                                                     self.game_over = True
                                                     break
-                                        else:
+                                        elif self.is_draw == True or e == 'Timed Out':
                                             try:
                                                 self.client.bots.post_message(self.game_id, "Tie!!", spectator=False)
                                                 self.Last_Move = None
@@ -975,6 +993,8 @@ try:
                                                 self.game_id = None
                                                 self.game_over = True
                                                 break
+                                        else:
+                                            time.sleep(6)
                                     
 
                                     # Check if time without move exceeds 10 minutes
