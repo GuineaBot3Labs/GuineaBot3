@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import os
-import Rewarder as r
 import gc
 import pickle
 import time
@@ -305,7 +304,7 @@ try:
             self.to('cuda:0')
 
     class DQNAgent:
-        def __init__(self, alpha=0.003, gamma=0.97, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995):
+        def __init__(self, alpha=0.001, gamma=0.97, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995):
             self.alpha = alpha
             self.gamma = gamma
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
@@ -333,9 +332,8 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer {self.token}"})
-            self.token = 'YOUR-TOKEN-HERE'
-            self.name = 'YOUR-USERNAME-HERE' # doesn't really matter, just for customization.
+            self.session.headers.update({"Authorization": f"Bearer lip_D3yKCVwoB6tr9JWTrr0W"})
+            self.token = 'lip_9O4pbzMp6TC73i8JOwr8'
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
             self.game_id = None
@@ -354,7 +352,10 @@ try:
             self.my_color = None
             self.best_reward = 0
             self.batch_size = 270
-            self.reward = 0
+            self.states = []
+            self.next_states = []
+            self.actions = []
+            self.rewards = []
             self.current_move = False
             self.STOCKFISH_PATH = None
 
@@ -551,7 +552,6 @@ try:
             # Load the state dictionary into the model
             self.model.load_state_dict(new_state_dict, strict=False)
             self.target_model.load_state_dict(new_state_dict, strict=False)
-            self.update_model()
             self.model.eval()
             self.target_model.eval()
 
@@ -600,25 +600,66 @@ try:
                 self.memory.append((state, action, reward, next_state, done))
                 
         @disable_function
-        def update_model(self, state, action, reward):
-            ### Update the main model ###
-            action_index = self.move_to_index(board, action)
-            target_f1 = self.model(state).detach().clone().to('cuda:0')  # Move target_f to cuda:0
-            target_f1[0, action_index] = reward
-            loss = self.loss_fn(target_f1, self.model(state)).to('cuda:0')
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
+        def update_model(self, state, next_state, action, reward, board):
+            # Append state, action, and reward to the class instance lists
+            self.states.append(state)
+            self.next_states.append(next_state)
+            self.actions.append(action)
+            self.rewards.append(reward)
+    
+            # Check if we have enough data to update the model
+            if len(self.states) >= 4:
+                # Randomly sample a batch of experiences
+                batch_indices = random.sample(range(len(self.states)), 4)
+        
+                # Extract the batch data
+                states_batch = torch.stack([self.states[i].clone().detach().to('cuda:0') for i in batch_indices])
+                next_states_batch = torch.stack([self.next_states[i].clone().detach().to('cuda:0') for i in batch_indices])
+                reward_batch = torch.tensor([self.rewards[i] for i in batch_indices], dtype=torch.float).to('cuda:0')
+                done_batch = torch.tensor([self.dones[i] for i in batch_indices], dtype=torch.float).to('cuda:0')
+        
+                # Clear the lists for the next set of data
+                self.states = [s for i, s in enumerate(self.states) if i not in batch_indices]
+                self.actions = [a for i, a in enumerate(self.actions) if i not in batch_indices]
+                self.rewards = [r for i, r in enumerate(self.rewards) if i not in batch_indices]
+                self.next_states = [ns for i, ns in enumerate(self.next_states) if i not in batch_indices]
+                self.dones = [d for i, d in enumerate(self.dones) if i not in batch_indices]
+
+                # Compute the target Q-values
+                with torch.no_grad():
+                    next_state_q_values = self.target_model(next_states_batch).view(-1, 4672)
+        
+                # Compute the updated Q-values for the batch
+                targets = torch.zeros(4).to('cuda:0')
+                for i in range(4):
+                    if done_batch[i]:
+                        targets[i] = reward_batch[i]
+                    else:
+                        next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
+                        next_state_legal_q_values = [next_state_q_values[i, idx] for idx in next_state_legal_move_indices if idx < 4672]
+                        best_next_action_index = next_state_legal_move_indices[torch.argmax(torch.tensor(next_state_legal_q_values)).item()]
+                        targets[i] = reward_batch[i] + self.gamma * next_state_q_values[i, best_next_action_index]
+        
+                current_q_values = self.model(states_batch).view(-1, 4672).to('cuda:0')
+                updated_q_values = current_q_values.clone()
+        
+                actions_indices = [self.move_to_index(board, self.actions[i]) for i in batch_indices]
+                for i, action_index in enumerate(actions_indices):
+                    updated_q_values[i, action_index] = targets[i]
                 
-            ### Update the target model ###
-            target_f2 = self.target_model(state).detach().clone().to('cuda:0')
-            target_f2[0, action_index] = reward
-            loss2 = self.loss_fn(target_f2, self.target_model(state).to('cuda:0'))
-            self.optimizer.zero_grad()
-            loss2.backward()
-            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            self.optimizer.step()
+                # Calculate loss and update model parameters
+                loss = self.loss_fn(updated_q_values, current_q_values)
+                self.optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.8)
+                self.optimizer.step()
+
+                # Mutate the model occasionally
+                if random.randint(0, 1) < 0.01:  # Assuming self.memory tracks the total number of experiences
+                    self.model.module.mutate()
+                    self.target_model.module.mutate()
+
+
 
         @disable_function
         def model_learn(self, state, opponent_move, reward):
@@ -692,10 +733,8 @@ try:
                                             plt.ylim(min(self.move_rewards), max(self.move_rewards))
                                             plt.draw()
                                             plt.pause(0.001)
-                                            self.update_model(state, move, reward)
-                                            self.remember(state, move, reward, next_state, done)
                                             board.pop()
-                                        self.update_model(state, move, reward)
+                                        self.update_model(state, move, reward, next_state, board)
                                         self.remember(state, move, reward, next_state, done)
                                         board.push(best_move)
                                         return best_move
@@ -709,9 +748,9 @@ try:
                         original_piece_type = board.piece_at(best_move.from_square).piece_type if board.piece_at(best_move.from_square) else None
                         board.push(best_move)
                         reward = 0 - self.get_reward(board, self.color, best_move, original_piece_type)
-                        self.update_model(state, best_move, reward)
                         next_state = self.board_to_state(board)
                         next_state.to('cuda:0')
+                        self.update_model(state, best_move, reward, board)
                         self.remember(state, best_move, reward, next_state, done)
                         print(f"DEBUG: Rewards: {reward}")
                         return best_move
@@ -752,7 +791,7 @@ try:
                             plt.ylim(min(self.move_rewards), max(self.move_rewards))
                             plt.draw()
                             plt.pause(0.001)
-                            self.update_model(state, best_move, reward)
+                            self.update_model(state, best_move, reward, best_state, board)
                             self.remember(state, move, reward, best_state, done)
                             board.push(best_move)
                             return best_move
@@ -765,7 +804,7 @@ try:
                             plt.ylim(min(self.move_rewards), max(self.move_rewards))
                             plt.draw()
                             plt.pause(0.001)
-                            self.update_model(state, best_move, reward)
+                            self.update_model(state, best_move, reward, best_state, board)
                             self.remember(state, move, reward, best_state, done)
                             board.push(best_move)
                             return best_move
@@ -913,11 +952,11 @@ try:
                     board.turn = chess.WHITE
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
@@ -1235,6 +1274,8 @@ try:
                 for square in chess.SQUARES:
                     if board.is_attacked_by(not color, square):
                         reward -= 0.3
+                    if board.is_attacked_by(color, square):
+                        reward += 10
 
             # Check for terminal states
             if board.is_checkmate():
@@ -1246,6 +1287,8 @@ try:
 
             if len(board.move_stack) >= 2 and move == board.peek():
                 reward -= 9
+            
+            reward = reward * 0.1
             return reward
 
 
@@ -1273,7 +1316,7 @@ try:
                      print("Draw!")
                      self.draws += 1
                      next_state = self.board_to_state(board)
-                     self.update_model(state, opponent_move, reward)
+                     self.update_model(state, opponent_move, reward, board)
                      self.remember(state, opponent_move, reward, next_state, done)
 
                 elif self.repeat_count > 20:
