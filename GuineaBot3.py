@@ -332,8 +332,8 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer lip_D3yKCVwoB6tr9JWTrr0W"})
-            self.token = 'lip_9O4pbzMp6TC73i8JOwr8'
+            self.session.headers.update({"Authorization": f"Bearer YOUR_API_KEY"})
+            self.token = 'YOUR_API_KEY'
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
             self.game_id = None
