@@ -1,4 +1,4 @@
-<img src="/730b2f04-e42c-450f-90c2-51ea20b5b272.jpg" alt="GuineaBot4" width="300" height="300">
+<img src="/730b2f04-e42c-450f-90c2-51ea20b5b272.jpg" alt="GuineaBot4" width="300" height="300" class="center">
 
 # GuineaBot3
 
