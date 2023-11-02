@@ -1,5 +1,7 @@
 <img src="https://files.oaiusercontent.com/file-ueobETh1zJwNXdX8n5r2ZJ7X?se=2023-11-02T02%3A21%3A50Z&sp=r&sv=2021-08-06&sr=b&rscc=max-age%3D31536000%2C%20immutable&rscd=attachment%3B%20filename%3D730b2f04-e42c-450f-90c2-51ea20b5b272.webp&sig=Ip%2BOEvBYWIyAMzpu2FBa10NzZhuf%2BI14QdDDhpRXM%2B8%3D" alt="GuineaBot4" width="300" height="300">
+
 # deep-GuineaBot3-lichess-bot
+
 A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
 
 ### WARNING: THIS CODE NEEDS A SUPER HIGH END GPU WHICH MAY NOT BE ACCESSIBLE FOR EVERYONE, I AM CURRENTLY WORKING ON A MORE COMPACT VERSION BUT FOR NOW YOU WILL NEED A CUDA COMPATIBLE GPU WITH A MEMORY OF 24GBs. I USED A TESLA K80 FOR THIS, YOU WILL NEED TO INSTALL TORCH MANUALLY IF YOU WANT TO DO THIS WITH THE SAME GPU. ###
