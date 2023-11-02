@@ -390,9 +390,9 @@ try:
             for name, param in self.model.named_parameters():
                 diff = model_weights_before[name] - param
                 if torch.any(diff):
-                    print(f"Model weights for {name} are not the same!")
+                    print(f"\nModel weights for {name} are not the same!")
                 else:
-                    print(f"Model weights for {name} are unchanged.")
+                    print(f"\nModel weights for {name} are unchanged.")
             self.replay_from_file(board)
             print("Done!")
         
