@@ -1,6 +1,7 @@
 import berserk
 import requests
 import chess
+from art import print_acsii_art
 from stockfish import getstockfishmove
 import chess.engine
 import copy
@@ -902,6 +903,8 @@ try:
 
         def train(self, episodes, batch_size, board):
             try:
+                print_acsii_art()
+                print("GuineaBot3 v4.0.5, copyrighted (©) 2022 april 23")
                 episode = 0
                 counter = 0
                 self.losses = 0
