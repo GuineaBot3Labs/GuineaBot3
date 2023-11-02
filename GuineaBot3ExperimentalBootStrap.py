@@ -306,7 +306,7 @@ try:
             self.to('cuda:0')
 
     class DQNAgent:
-        def __init__(self, alpha=0.03, gamma=0.97, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995):
+        def __init__(self, alpha=0.02, gamma=0.97, epsilon=0.7, epsilon_min=0.001, epsilon_decay=0.995):
             self.alpha = alpha
             self.gamma = gamma
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
@@ -698,7 +698,7 @@ try:
                 try:
                         while legal_moves:
                                 if torch.rand(1) <= self.epsilon:
-                                        if random.randint(0, 1) >= 2:
+                                        if random.randint(0, 1) >= 0.5:
                                             print("DEBUG: EXPLORATION MOVE")
                                             random_move = self.choose_actionrandom(state, legal_moves, board)
                                             return random_move
