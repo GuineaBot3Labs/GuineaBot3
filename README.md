@@ -1,5 +1,8 @@
-<img src="/730b2f04-e42c-450f-90c2-51ea20b5b272.jpg" alt="GuineaBot4" width="300" height="300" class="centered">
+![GuineaBot4](/730b2f04-e42c-450f-90c2-51ea20b5b272.jpg)
 
+  [Report bug][issue-link]
+  ·
+  [wiki][wiki-link]
 # GuineaBot3
 
 A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
@@ -61,3 +64,6 @@ and on windows on your 3 command prompts type:
 
 NOTE:
 Stockfish is used in GuineaBot3ExperimentalBootStrap.py, I am not taking any credit because stockfish is responsible for making the bootstrap possible, please note that you may have to set the epsilon to a reasonable amount like 0.4 otherwise stockfish will basically play for GuineaBot3.
+
+[issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
+[wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
