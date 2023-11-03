@@ -2,6 +2,8 @@
 
   [Report bug][issue-link]
   ·
+  Copyright © 2022 GuineaPigLord. All rights reserved.
+
   [wiki][wiki-link]
 # GuineaBot3
 
