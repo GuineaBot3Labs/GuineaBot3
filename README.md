@@ -1,10 +1,10 @@
 ![GuineaBot4](/730b2f04-e42c-450f-90c2-51ea20b5b272.jpg)
 
   [Report bug][issue-link]
-  ·
-  Copyright © 2022 GuineaPigLord. All rights reserved.
+  ·[wiki][wiki-link]
 
-  [wiki][wiki-link]
+  Copyright © 2022 GuineaPigLord. All rights reserved.
+  
 # GuineaBot3
 
 A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
