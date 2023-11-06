@@ -361,7 +361,7 @@ try:
             self.current_move = False
             self.STOCKFISH_PATH = None
             # Configure stockfish (downloaded: Required)
-            self.STOCKFISH_PATH = "../Stockfish/src/stockfish"
+            self.STOCKFISH_PATH = "YOUR-PATH-TO-STOCKFISH"
             self.engine = chess.engine.SimpleEngine.popen_uci(self.STOCKFISH_PATH)
             self.engine.configure({"Skill Level": 20})
 
