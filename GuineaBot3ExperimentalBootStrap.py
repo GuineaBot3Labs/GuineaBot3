@@ -166,6 +166,7 @@ try:
             max_fcs = 26  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
+            noise = 0.5
     
             # Decide to add or remove a fully connected layer
             if random.random() < 0.1:
@@ -189,7 +190,7 @@ try:
             with torch.no_grad():
                 for param in self.parameters():
                     if random.random() < 0.1:
-                        param += torch.randn_like(param) * 0.5
+                        param += torch.randn_like(param) * noise
 
             self.to('cuda:0')
             
@@ -274,6 +275,7 @@ try:
             max_fcs = 26  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
+            noise = 0.5
 
             # Decide to add or remove a fully connected layer
             if random.random() < 0.1:
@@ -301,7 +303,7 @@ try:
             with torch.no_grad():
                 for param in self.parameters():
                     if random.random() < 0.1:
-                        param += torch.randn_like(param) * 0.5
+                        param += torch.randn_like(param) * noise
 
             self.to('cuda:0')
 
@@ -334,9 +336,10 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer YOUR-API-TOKEN"})
-            self.token = 'YOUR-API-TOKEN'
+            self.token = 'YOUR-TOKEN-HERE'
+            self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
+            self.name = 'YOUR-USERNAME-HERE'
 
             self.game_id = None
             self.game_over = False
@@ -361,7 +364,7 @@ try:
             self.current_move = False
             self.STOCKFISH_PATH = None
             # Configure stockfish (downloaded: Required)
-            self.STOCKFISH_PATH = "YOUR-PATH-TO-STOCKFISH"
+            self.STOCKFISH_PATH = "../Stockfish/src/stockfish"
             self.engine = chess.engine.SimpleEngine.popen_uci(self.STOCKFISH_PATH)
             self.engine.configure({"Skill Level": 20})
 
@@ -942,11 +945,11 @@ try:
                     board.turn = chess.WHITE
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, "Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
@@ -995,6 +998,7 @@ try:
                       
                                     except Exception as e:
                                         print(f"something happened, checking: {e}")
+                                        print(f"Caught an exception of type: {type(e)}")
                                         if self.error == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
@@ -1024,7 +1028,7 @@ try:
                                                 self.game_over = True
                                                 self.repeat_count = 0
                                                 break
-                                        elif e == 'Timed Out':
+                                        elif isinstance(e, timeout_decorator.timeout_decorator.TimeoutError) or 'Timed Out' in e:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "Tie!!", spectator=False)
                                                 self.Last_Move = None
@@ -1040,10 +1044,11 @@ try:
                                                 self.game_over = True
                                                 self.repeat_count = 0
                                                 break
-                                        elif e.startswith("429 Client Error: Too Many Requests for url:"):
+                                        elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
                                             time.sleep(6)
                                         else:
                                             self.repeat_count = 0
+                                            time.sleep(6)
                                             
                                     
 
