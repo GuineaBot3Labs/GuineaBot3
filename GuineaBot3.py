@@ -2,7 +2,6 @@ import berserk
 import requests
 import chess
 from art import print_acsii_art
-from stockfish import getstockfishmove
 import chess.engine
 import copy
 from timeout_decorator import timeout
@@ -19,6 +18,7 @@ import matplotlib.pyplot as plt
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import os
+import Rewarder as r
 import gc
 import pickle
 import time
@@ -84,12 +84,12 @@ try:
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
-            self.conv_bns = nn.ModuleList()
+            self.conv_ins = nn.ModuleList()
             in_channels = 14
             out_channels = 24
             for _ in range(num_convs):
                 self.convs.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
-                self.conv_bns.append(nn.BatchNorm2d(out_channels))
+                self.conv_ins.append(nn.InstanceNorm2d(out_channels))
                 in_channels = out_channels
                 out_channels *= 2
 
@@ -103,14 +103,14 @@ try:
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
-            self.fc_bns = nn.ModuleList()
+            self.fc_lns = nn.ModuleList()
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
                     self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
-                self.fc_bns.append(nn.BatchNorm1d(out_features))
+                self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
             self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
@@ -120,7 +120,7 @@ try:
 
         def forward(self, x):
             # Pass input through each convolutional layer
-            for conv, bn in zip(self.convs, self.conv_bns):
+            for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
                 print("Max value after Conv Layer:", x.abs().max().item())
@@ -142,7 +142,7 @@ try:
 
             print(f"Shape of x before FC layers: {x.shape}")
             # Pass flattened output through fully connected layers
-            for fc, bn in zip(self.fcs, self.fc_bns):
+            for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
                 print("Max value after fc Layer:", x.abs().max().item())
                 print("DEBUG: Checking for NaN in fc layer:", torch.isnan(x).any())
@@ -165,6 +165,7 @@ try:
             max_fcs = 26  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
+            noise = 0.5
     
             # Decide to add or remove a fully connected layer
             if random.random() < 0.1:
@@ -188,7 +189,7 @@ try:
             with torch.no_grad():
                 for param in self.parameters():
                     if random.random() < 0.1:
-                        param += torch.randn_like(param) * 0.5
+                        param += torch.randn_like(param) * noise
 
             self.to('cuda:0')
             
@@ -203,12 +204,12 @@ try:
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
-            self.conv_bns = nn.ModuleList()
+            self.conv_ins = nn.ModuleList()
             in_channels = 14
             out_channels = 24
             for _ in range(num_convs):
                 self.convs.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
-                self.conv_bns.append(nn.BatchNorm2d(out_channels))
+                self.conv_ins.append(nn.InstanceNorm2d(out_channels))
                 in_channels = out_channels
                 out_channels *= 2
 
@@ -221,14 +222,14 @@ try:
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
-            self.fc_bns = nn.ModuleList()
+            self.fc_lns = nn.ModuleList()
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
                     self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
-                self.fc_bns.append(nn.BatchNorm1d(out_features))
+                self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
             self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
@@ -238,7 +239,7 @@ try:
 
         def forward(self, x):
             # Pass input through each convolutional layer
-            for conv, bn in zip(self.convs, self.conv_bns):
+            for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
         
@@ -258,7 +259,7 @@ try:
 
             print(f"Shape of x before FC layers: {x.shape}")
             # Pass flattened output through fully connected layers
-            for fc, bn in zip(self.fcs, self.fc_bns):
+            for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
             print(f"Shape of x after FC layers: {x.shape}")
 
@@ -273,6 +274,7 @@ try:
             max_fcs = 26  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
+            noise = 0.5
 
             # Decide to add or remove a fully connected layer
             if random.random() < 0.1:
@@ -300,12 +302,12 @@ try:
             with torch.no_grad():
                 for param in self.parameters():
                     if random.random() < 0.1:
-                        param += torch.randn_like(param) * 0.5
+                        param += torch.randn_like(param) * noise
 
             self.to('cuda:0')
 
     class DQNAgent:
-        def __init__(self, alpha=0.001, gamma=0.97, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995):
+        def __init__(self, alpha=0.03, gamma=0.97, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995):
             self.alpha = alpha
             self.gamma = gamma
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
@@ -333,8 +335,9 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer YOUR_API_KEY"})
-            self.token = 'YOUR_API_KEY'
+            self.token = 'YOUR-API-KEY'
+            self.name = 'YOUR-USERNAME'
+            self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
             self.game_id = None
@@ -358,7 +361,6 @@ try:
             self.actions = []
             self.rewards = []
             self.current_move = False
-            self.STOCKFISH_PATH = None
 
 
             print("Using", torch.cuda.device_count(), "GPUs!")
@@ -385,9 +387,9 @@ try:
             for name, param in self.model.named_parameters():
                 diff = model_weights_before[name] - param
                 if torch.any(diff):
-                    print(f"Model weights for {name} are not the same!")
+                    print(f"\nModel weights for {name} are not the same!")
                 else:
-                    print(f"Model weights for {name} are unchanged.")
+                    print(f"\nModel weights for {name} are unchanged.")
             self.replay_from_file(board)
             print("Done!")
         
@@ -600,69 +602,21 @@ try:
             if np.random.rand() < 1.0 and not self.batch_size <= len(self.memory):  # 40% chance to remember the move in long term
                 self.memory.append((state, action, reward, next_state, done))
                 
-        @disable_function
-        def update_model(self, state, next_state, action, reward, board):
-            # Append state, action, and reward to the class instance lists
-            self.states.append(state)
-            self.next_states.append(next_state)
-            self.actions.append(action)
-            self.rewards.append(reward)
-    
-            # Check if we have enough data to update the model
-            if len(self.states) >= 4:
-                # Randomly sample a batch of experiences
-                batch_indices = random.sample(range(len(self.states)), 4)
-        
-                # Extract the batch data
-                states_batch = torch.stack([self.states[i].clone().detach().to('cuda:0') for i in batch_indices])
-                next_states_batch = torch.stack([self.next_states[i].clone().detach().to('cuda:0') for i in batch_indices])
-                reward_batch = torch.tensor([self.rewards[i] for i in batch_indices], dtype=torch.float).to('cuda:0')
-                done_batch = torch.tensor([self.dones[i] for i in batch_indices], dtype=torch.float).to('cuda:0')
-        
-                # Clear the lists for the next set of data
-                self.states = [s for i, s in enumerate(self.states) if i not in batch_indices]
-                self.actions = [a for i, a in enumerate(self.actions) if i not in batch_indices]
-                self.rewards = [r for i, r in enumerate(self.rewards) if i not in batch_indices]
-                self.next_states = [ns for i, ns in enumerate(self.next_states) if i not in batch_indices]
-                self.dones = [d for i, d in enumerate(self.dones) if i not in batch_indices]
+        def update_model(self, state, action, reward):
 
-                # Compute the target Q-values
-                with torch.no_grad():
-                    next_state_q_values = self.target_model(next_states_batch).view(-1, 4672)
-        
-                # Compute the updated Q-values for the batch
-                targets = torch.zeros(4).to('cuda:0')
-                for i in range(4):
-                    if done_batch[i]:
-                        targets[i] = reward_batch[i]
-                    else:
-                        next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
-                        next_state_legal_q_values = [next_state_q_values[i, idx] for idx in next_state_legal_move_indices if idx < 4672]
-                        best_next_action_index = next_state_legal_move_indices[torch.argmax(torch.tensor(next_state_legal_q_values)).item()]
-                        targets[i] = reward_batch[i] + self.gamma * next_state_q_values[i, best_next_action_index]
-        
-                current_q_values = self.model(states_batch).view(-1, 4672).to('cuda:0')
-                updated_q_values = current_q_values.clone()
-        
-                actions_indices = [self.move_to_index(board, self.actions[i]) for i in batch_indices]
-                for i, action_index in enumerate(actions_indices):
-                    updated_q_values[i, action_index] = targets[i]
-                
-                # Calculate loss and update model parameters
-                loss = self.loss_fn(updated_q_values, current_q_values)
+            for i in range(10):
+                action_index = self.move_to_index(board, action)
+                target_f = self.model(state).detach().clone()
+                # target_f = target_f.to('cuda:0')  # Move target_f to cuda:0
+                target_f[0, action_index] = reward
+
+                loss = self.loss_fn(target_f, self.model(state))
                 self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.8)
                 self.optimizer.step()
-
-                # Mutate the model occasionally
-                if random.randint(0, 1) < 0.01:  # Assuming self.memory tracks the total number of experiences
-                    self.model.module.mutate()
-                    self.target_model.module.mutate()
+                
 
 
-
-        @disable_function
         def model_learn(self, state, opponent_move, reward):
 
             ### Update the main model ###
@@ -694,8 +648,9 @@ try:
                         while legal_moves:
                                 if torch.rand(1) <= self.epsilon:
                                         print("DEBUG: EXPLORATION MOVE")
-                                        best_move = self.choose_actionrandom(state, legal_moves, board)
-                                        return best_move
+                                        random_move = self.choose_actionrandom(state, legal_moves, board)
+                                        return random_move
+
                                 else:
                                         print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
@@ -735,7 +690,7 @@ try:
                                             plt.draw()
                                             plt.pause(0.001)
                                             board.pop()
-                                        self.update_model(state, move, reward, next_state, board)
+                                        self.update_model(state, move, reward)
                                         self.remember(state, move, reward, next_state, done)
                                         board.push(best_move)
                                         return best_move
@@ -748,10 +703,10 @@ try:
                         done = board.is_game_over()
                         original_piece_type = board.piece_at(best_move.from_square).piece_type if board.piece_at(best_move.from_square) else None
                         board.push(best_move)
-                        reward = 0 - self.get_reward(board, self.color, best_move, original_piece_type)
+                        reward = self.get_reward(board, self.color, best_move, original_piece_type)
                         next_state = self.board_to_state(board)
                         next_state.to('cuda:0')
-                        self.update_model(state, best_move, reward, board)
+                        self.update_model(state, best_move, reward)
                         self.remember(state, best_move, reward, next_state, done)
                         print(f"DEBUG: Rewards: {reward}")
                         return best_move
@@ -765,6 +720,7 @@ try:
 
 
                         for i in range(11):
+
                             move = random.choice(list(board.legal_moves))
                             print(f"{i}st move from bot: {move}\n")
                             self.model.train()
@@ -792,7 +748,7 @@ try:
                             plt.ylim(min(self.move_rewards), max(self.move_rewards))
                             plt.draw()
                             plt.pause(0.001)
-                            self.update_model(state, best_move, reward, best_state, board)
+                            self.update_model(state, best_move, reward)
                             self.remember(state, move, reward, best_state, done)
                             board.push(best_move)
                             return best_move
@@ -805,97 +761,58 @@ try:
                             plt.ylim(min(self.move_rewards), max(self.move_rewards))
                             plt.draw()
                             plt.pause(0.001)
-                            self.update_model(state, best_move, reward, best_state, board)
+                            self.update_model(state, best_move, reward)
                             self.remember(state, move, reward, best_state, done)
                             board.push(best_move)
                             return best_move
 
 
-
-
         def replay(self, batch_size, board):
+            # if len(self.short_term_memory) < batch_size // 2 or len(self.memory) < batch_size // 2:
+            #     return
+            
             print("DEBUG: actually doing what I am supposed to...")
-            
-            num_short_term = len(self.short_term_memory)
-            num_long_term = batch_size
-            
-            if len(self.memory) < num_long_term:
-                print("Not enough long-term memories for training")
-                return
-            
-            long_term_batch = random.sample(self.memory, num_long_term)
-            short_term_batch = self.short_term_memory
-            
+
+            # Sample from long-term memory (self.memory)
+            long_term_batch = random.sample(self.memory, batch_size // 2)
+
+            # Sample from short-term memory (self.short_term_memory)
+            short_term_batch = random.sample(self.short_term_memory, min(len(self.short_term_memory), batch_size // 2))
+
+            # Combine both batches
             batch = long_term_batch + short_term_batch
 
-            state_batch = torch.cat([s.clone().detach().to('cuda:0') for s, _, _, _, _ in batch], dim=0)
-            print(f"DEBUG: state_batch contains NaN: {torch.isnan(state_batch).any()}")
+            for state, action, reward, next_state, done in batch:
+                state = torch.tensor(state, dtype=torch.float)
+                next_state = torch.tensor(next_state, dtype=torch.float)
+                reward = torch.tensor(reward, dtype=torch.float)
 
-            next_state_batch = torch.cat([ns.clone().detach().to('cuda:0') for _, _, _, ns, _ in batch], dim=0)
-            print(f"DEBUG: next_state_batch contains NaN: {torch.isnan(next_state_batch).any()}")
-
-            reward_batch = torch.tensor([r for _, _, r, _, _ in batch], dtype=torch.float).to('cuda:0')
-            print(f"DEBUG: reward_batch contains NaN: {torch.isnan(reward_batch).any()}")
-            
-            done_batch = torch.tensor([float(d) for _, _, _, _, d in batch], dtype=torch.float).to('cuda:0')
-            print(f"DEBUG: done_batch contains NaN: {torch.isnan(done_batch).any()}")
-
-
-            with torch.no_grad():
-                next_state_q_values = self.target_model(next_state_batch).view(-1, 4672)
-            print(f"DEBUG: next_state_q_values contains NaN: {torch.isnan(next_state_q_values).any()}")
-
-            targets = torch.zeros(batch_size).to('cuda:0')
-            for i in range(min(batch_size, done_batch.size(0))): 
-                if done_batch[i]:
-                    targets[i] = reward_batch[i]
+                if done:
+                    target = reward
                 else:
+                    # Double Q-Network update
+                    with torch.no_grad():
+                        next_state_q_values = self.target_model(next_state).view(-1)
                     next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
-                    next_state_legal_q_values = [next_state_q_values[i, idx] for idx in next_state_legal_move_indices if idx < 4672]
-                    best_next_action_index = next_state_legal_move_indices[torch.argmax(torch.tensor(next_state_legal_q_values)).item()]
-                    targets[i] = reward_batch[i] + self.gamma * next_state_q_values[i, best_next_action_index]
+                    next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
+                    best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
+                    target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
 
-            current_q_values = self.model(state_batch).view(-1, 4672).to('cuda:0')
-            updated_q_values = current_q_values.clone()
-            for i in range(batch_size):
-                try:
-                    action_index = self.move_to_index(board, batch[i][1])
-                except IndexError:
-                    action_index = self.move_to_index(board, batch[i])
-                updated_q_values[i, action_index] = targets[i]
-            
-            print(updated_q_values)  # Checks for NaN in updated_q_values
-            print(current_q_values)  # Checks for NaN in current_q_values
+                # Convert move to a unique index
+                print("DEBUG: Half way there...")
+                action_index = self.move_to_index(board, action)
 
-            loss = self.loss_fn(updated_q_values, current_q_values)
-            if torch.isnan(loss).any() or torch.isinf(loss).any():
-                print("NaN or Inf found in loss:", loss.item())
-            else:
-                print("Loss value:", loss.item())
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=0.8)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.8)
-            self.optimizer.step()
+                target_f = self.model(state).detach().clone()
+                target_f[0, action_index] = target
+
+                loss = self.loss_fn(target_f, self.model(state))
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
 
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
-
-            with open("trainingdata.bin", "ab") as f:
-                pickle.dump({
-                    'memory': self.memory,
-                    'short_term_memory': self.short_term_memory,
-                    'epsilon': self.epsilon,
-                    'epsilon_min': self.epsilon_min,
-                    'epsilon_decay': self.epsilon_decay
-                }, f)
-            
-            if random.randint(0, 1) < 0.03:
-                self.model.module.mutate()
-                self.target_model.module.mutate()
-
             print("DONE!")
-
 
 
 
@@ -904,7 +821,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.0.5, Copyright © 2022 GuineaPigLord. All rights reserved.")
+                print("GuineaBot3 v4.0.5, copyrighted (©) 2022 april 23")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -955,11 +872,11 @@ try:
                     board.turn = chess.WHITE
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, "Hi! I am GuineaBot3, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, "Hi! I am {self.name}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
@@ -1008,6 +925,7 @@ try:
                       
                                     except Exception as e:
                                         print(f"something happened, checking: {e}")
+                                        print(f"Caught an exception of type: {type(e)}")
                                         if self.error == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
@@ -1021,22 +939,29 @@ try:
                                                     self.game_id = None
                                                     self.game_over = True
                                                     break
-                                        elif self.is_draw == True or e == 'Timed Out':
+                                        elif self.is_draw == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "Tie!!", spectator=False)
                                                 self.Last_Move = None
                                                 self.lastfen = None
                                                 self.game_id = None
                                                 self.game_over = True
+                                                self.repeat_count = 0
                                                 break
                                             except Exception as e:
                                                 self.Last_Move = None
                                                 self.lastfen = None
                                                 self.game_id = None
                                                 self.game_over = True
-                                                break
-                                        else:
+                                                self.repeat_count = 0
+
+                               
+                                        elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
                                             time.sleep(6)
+                                        else:
+                                            self.repeat_count = 0
+                                            time.sleep(6)
+                                            
                                     
 
                                     # Check if time without move exceeds 10 minutes
@@ -1179,6 +1104,9 @@ try:
                         moves = 0
                         self.game_over = False
         
+        
+
+
 
                         
             except Exception:
@@ -1319,7 +1247,7 @@ try:
                      print("Draw!")
                      self.draws += 1
                      next_state = self.board_to_state(board)
-                     self.update_model(state, opponent_move, reward, board)
+                     self.update_model(state, opponent_move, reward)
                      self.remember(state, opponent_move, reward, next_state, done)
 
                 elif self.repeat_count > 20:
@@ -1443,27 +1371,9 @@ try:
 except Exception as e:
     traceback.print_exc()
 
-# Configure stockfish (downloaded: Required)
-STOCKFISH_PATH = "../Stockfish/src/stockfish"
-opponent = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
-opponent.configure({"Skill Level": 10})
 
 
-def stockfish_move(board, counter):
-    global opponent
-    # Stockfish's move
-    result = opponent.play(board, chess.engine.Limit(time=0.1))
-    action = result.move
-    board.push(action)
 
-
-    
-def exploration_move(board):
-
-    action = getstockfishmove(board)
-    board.push(action)
-    
-    return action
         
 def random_move(board, counter):
     counter = 0
