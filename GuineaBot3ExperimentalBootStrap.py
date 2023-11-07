@@ -336,10 +336,10 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-TOKEN-HERE'
+            self.token = 'YOUR-API-KEY'
+            self.name = 'YOUR-USERNAME'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
-            self.name = 'YOUR-USERNAME-HERE'
 
             self.game_id = None
             self.game_over = False
@@ -653,39 +653,10 @@ try:
                 try:
                         while legal_moves:
                                 if torch.rand(1) <= self.epsilon:
-                                        if random.randint(0, 1) >= 2:
-                                            print("DEBUG: EXPLORATION MOVE")
-                                            random_move = self.choose_actionrandom(state, legal_moves, board)
-                                            return random_move
-                                        else:
-                                            # EXPERIMENTAL
-                                            state = self.board_to_state(board)
-                                            state = state.to('cuda:0')  # Move the state to GPU
-                                            print("DEBUG: STOCKFISH MOVE")
-                                            best_move = self.stockfish_move(board)
+                                        print("DEBUG: EXPLORATION MOVE")
+                                        random_move = self.choose_actionrandom(state, legal_moves, board)
+                                        return random_move
 
-                                            self.model.train()
-                                            done = board.is_game_over()
-                                            board.push(best_move)
-                                            next_state = self.board_to_state(board)
-                                            next_state.to('cuda:0')
-                                            reward = self.evaluate_board(board)
-                                            # reward = self.get_reward(board, self.color, move, original_piece_type)
-                                            if np.isnan(reward) or np.isinf(reward):
-                                                reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
-                                            self.move_rewards.append(reward)
-                                            print(f"DEBUG: Rewards: {self.move_rewards}")
-                                            self.line.set_ydata(self.move_rewards)
-                                            self.line.set_xdata(range(len(self.move_rewards)))
-                                            plt.xlim(0, len(self.move_rewards))
-                                            plt.ylim(min(self.move_rewards), max(self.move_rewards))
-                                            plt.draw()
-                                            plt.pause(0.001)
-                                            # board.pop()
-                                            self.update_model(state, best_move, reward)
-                                            self.remember(state, best_move, reward, next_state, done)
-                                            return best_move
-                                            
                                 else:
                                         print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
@@ -1027,23 +998,8 @@ try:
                                                 self.game_id = None
                                                 self.game_over = True
                                                 self.repeat_count = 0
-                                                break
-                                        elif isinstance(e, timeout_decorator.timeout_decorator.TimeoutError) or 'Timed Out' in e:
-                                            try:
-                                                self.client.bots.post_message(self.game_id, "Tie!!", spectator=False)
-                                                self.Last_Move = None
-                                                self.lastfen = None
-                                                self.game_id = None
-                                                self.game_over = True
-                                                self.repeat_count = 0
-                                                break
-                                            except Exception as e:
-                                                self.Last_Move = None
-                                                self.lastfen = None
-                                                self.game_id = None
-                                                self.game_over = True
-                                                self.repeat_count = 0
-                                                break
+
+                               
                                         elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
                                             time.sleep(6)
                                         else:
