@@ -1,6 +1,9 @@
 import berserk
 import requests
 import chess
+import chess.pgn
+import io
+from tqdm import tqdm
 from art import print_acsii_art
 import chess.engine
 import copy
@@ -18,7 +21,6 @@ import matplotlib.pyplot as plt
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import os
-import Rewarder as r
 import gc
 import pickle
 import time
@@ -45,26 +47,18 @@ try:
         def forward(self, x):
             # x shape: [batch, channels, height, width]
         
-            print("Shape of x before reshaping:", x.shape)
             x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-            print("Shape of x after reshaping:", x.shape)
 
             # Apply attention
             x, _ = self.attention1(x, x, x)
-            print("DEBUG: Checking for NaN in Attention input1:", torch.isnan(x).any())
             x, _ = self.attention2(x, x, x)
-            print("DEBUG: Checking for NaN in Attention hidden1:", torch.isnan(x).any())
             x, _ = self.attention3(x, x, x)
-            print("DEBUG: Checking for NaN in Attention hidden2:", torch.isnan(x).any())
             x, _ = self.attention4(x, x, x)
-            print("DEBUG: Checking for NaN in Attention hidden3:", torch.isnan(x).any())
             x, _ = self.attention5(x, x, x)
-            print("DEBUG: Checking for NaN in Attention output1:", torch.isnan(x).any())
 
 
             # Combine attention outputs (you can also concatenate or use other methods)
             attn_output = x
-            print("Shape of attn_output:", attn_output.shape)
 
             # Reshape back
             attn_output = attn_output.view(-1, 96, 1, 1)
@@ -123,36 +117,23 @@ try:
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                print("Max value after Conv Layer:", x.abs().max().item())
-
-                print("DEBUG: Checking for NaN in Conv Layer:", torch.isnan(x).any())
             # Calculate the input size for the first fully connected layer
             fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
 
             # Update the first fully connected layer's input size
             self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-
-            print(f"Shape of x after CNN layers: {x.shape}")            
+            
 
             x = self.attention(x)
-            print(f"Shape of x after attention layer: {x.shape}")
-
+            
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
-            print(f"Shape of x before FC layers: {x.shape}")
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
-                print("Max value after fc Layer:", x.abs().max().item())
-                print("DEBUG: Checking for NaN in fc layer:", torch.isnan(x).any())
-            print(f"Shape of x after FC layers: {x.shape}")
-
             # Output layer
             x = self.output_layer(x)
-            print("Max value after fc Layer:", x.abs().max().item())
-            print("DEBUG: Checking for NaN in neural network output:", torch.isnan(x).any())
-            print(f"Shape of x after Output Layer: {x.shape}")
 
 
             
@@ -249,19 +230,13 @@ try:
             # Update the first fully connected layer's input size
             self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
 
-            print(f"Shape of x after CNN layers: {x.shape}")            
-
             x = self.attention(x)
-            print(f"Shape of x after attention layer: {x.shape}")
-
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
-            print(f"Shape of x before FC layers: {x.shape}")
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
-            print(f"Shape of x after FC layers: {x.shape}")
 
             # Output layer
             x = self.output_layer(x)
@@ -307,9 +282,10 @@ try:
             self.to('cuda:0')
 
     class DQNAgent:
-        def __init__(self, alpha=0.03, gamma=0.97, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995):
+        def __init__(self, alpha=0.03, gamma=0.97, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True):
             self.alpha = alpha
             self.gamma = gamma
+            self.pgn = pgn
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
             self.devices = [torch.device('cuda:0'), torch.device('cuda:1')]
 
@@ -335,8 +311,8 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-API-KEY'
-            self.name = 'YOUR-USERNAME'
+            self.token = 'lip_9O4pbzMp6TC73i8JOwr8'
+            self.name = 'GuineaBot3'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -527,6 +503,45 @@ try:
                     time.sleep(20)
                 except Exception:
                     pass
+        
+        def replay_pgn_and_learn(self, file_path):
+            try:
+                board1 = chess.Board()
+                game_count = 0
+
+                with open(file_path, 'r') as pgn_file:
+                    while True:
+                        game = chess.pgn.read_game(pgn_file)
+                        if game is None:
+                            break  # Exit if no more games
+
+                        game_count += 1
+                        print(f"Processing game {game_count}", end='\r')
+
+                        board1.reset()
+                        moves = list(game.mainline_moves())
+                        for move in tqdm(moves, desc="Processing moves"):
+                            board1.push(move)
+                            state = self.board_to_state(board1)
+                            original_piece_type = board1.piece_at(move.from_square).piece_type if board1.piece_at(move.from_square) else None
+                            reward = self.get_reward(board1, board1.turn, move, original_piece_type)  # Adapt reward function if needed
+                            done = board1.is_game_over()
+                            next_state = self.board_to_state(board1)
+                            self.update_model(state, move, reward)
+                            self.remember(state, move, reward, next_state, done)
+                        if 270 <= len(self.memory):
+                            print("Now commencing replay (may take a while)")
+                            self.replay(batch_size, board1)
+
+                            self.memory = []
+                            # Clear the GPU cache
+                            gc.collect()
+                            torch.cuda.empty_cache()
+                        
+                        self.short_term_memory = []
+                print("\nAll games processed. Total games:", game_count)
+            except KeyboardInterrupt:
+                pass
 
 
         def replay_from_file(self, board):
@@ -604,7 +619,7 @@ try:
                 
         def update_model(self, state, action, reward):
 
-            for i in range(10):
+            for i in range(1):
                 action_index = self.move_to_index(board, action)
                 target_f = self.model(state).detach().clone()
                 # target_f = target_f.to('cuda:0')  # Move target_f to cuda:0
@@ -782,7 +797,7 @@ try:
             # Combine both batches
             batch = long_term_batch + short_term_batch
 
-            for state, action, reward, next_state, done in batch:
+            for state, action, reward, next_state, done in tqdm(batch, desc="Processing batch"):
                 state = torch.tensor(state, dtype=torch.float)
                 next_state = torch.tensor(next_state, dtype=torch.float)
                 reward = torch.tensor(reward, dtype=torch.float)
@@ -799,7 +814,6 @@ try:
                     target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
 
                 # Convert move to a unique index
-                print("DEBUG: Half way there...")
                 action_index = self.move_to_index(board, action)
 
                 target_f = self.model(state).detach().clone()
@@ -821,7 +835,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.0.5, copyrighted (©) 2022 april 23")
+                print("GuineaBot3 v4.1.8, copyrighted (©) 2022 april 23")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -860,6 +874,18 @@ try:
                     else:
                         print("enter a valid value, y or n")
                         exit(0)
+
+                if self.pgn == True:
+                    i = input("\nDo You want to train model on pgns? (y|n): ")
+                    if i == "y":
+                        q = input("\nwhat is the filepath?: ")
+                        print("\nTraining, do not turn off server...")
+                        try:
+                            self.replay_pgn_and_learn(q)
+                        except Exception as e:
+                            print(f"failed, just going to run untrained: {e}")
+                    else:
+                        print("Skipping...\n")
                 while episodes > episode:
 
                     if len(self.move_rewards) >= 1000:
