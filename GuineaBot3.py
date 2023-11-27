@@ -282,10 +282,11 @@ try:
             self.to('cuda:0')
 
     class DQNAgent:
-        def __init__(self, alpha=0.03, gamma=0.97, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True):
+        def __init__(self, alpha=0.03, gamma=0.97, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
+            self.vebrose = vebrose
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
             self.devices = [torch.device('cuda:0'), torch.device('cuda:1')]
 
@@ -374,7 +375,8 @@ try:
             if self.game_over == False:
                 moves = self.client.games.stream_game_moves(self.game_id)
                 for line in moves:
-                    print(line)
+                    if self.vebrose == True:
+                        print(line)
 
                     self.backupfen = line.get('fen') # Get the backup FEN in case of invalid move error
                     possible = [line.get(key) for key in ['lm', 'lastMove', 'LastMove', 'lastmove']]
@@ -395,45 +397,65 @@ try:
                         
                         
                         game_status = line.get('status', {}).get('name')  # Get the game status
-                        print("DEBUG: game status: ", game_status)
+                        if self.vebrose == True:
+
+                            print("DEBUG: game status: ", game_status)
                         
-                        print("checking checkpoint 1...")
-                        
-                        print("checking checkpoint 2...")
+                            print("checking checkpoint 1...")
+                         
+                            print("checking checkpoint 2...")
                         if game_status == 'draw':
-                            print("Game is over. Pausing for 5 seconds.")
+                            if self.vebrose == True:
+                             
+                                print("Game is over. Pausing for 5 seconds.")
                             self.is_draw = True
+                        if self.vebrose == True:
                         
-                        print("checking checkpoint 3...")
+                            print("checking checkpoint 3...")
                         if game_status == 'stalemate':
                             board.set_fen(self.backupfen)
-                            print("Game is over. Pausing for 5 seconds.")
+                            if self.vebrose == True:
+
+                                print("Game is over. Pausing for 5 seconds.")
                             self.is_stalemate = True
                             self.is_draw = True
+                        if self.vebrose == True:
                         
-                        print("checking checkpoint 4...")
+                            print("checking checkpoint 4...")
                         if game_status == 'aborted':
                             board.set_fen(self.backupfen)
-                            print("Game is over. Pausing for 5 seconds.")
+                            if self.vebrose == True:
+
+                                print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
 
                         if game_status == 'outoftime':
-                            print("Game is over. Pausing for 5 seconds.")
+                            if self.vebrose == True:
+
+                                print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
                             self.is_draw = True
                             time.sleep(5)          
 
                         if game_status == 'resign':
-                            print("Game is over. Pausing for 5 seconds.")
+                            if self.vebrose == True:
+
+                                print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
                             self.is_draw = True
-                            time.sleep(5)                        
-                        print("checking checkpoint 5...")
+                            time.sleep(5)                  
+                        if self.vebrose == True:
+      
+                            print("checking checkpoint 5...")
                         self.repeat_count += 1
-                        print(f"DEBUG: Repeat Count: {self.repeat_count}")
+                        if self.vebrose == True:
+
+                            print(f"DEBUG: Repeat Count: {self.repeat_count}")
                         
                         if board.turn == self.color:
-                            print("Accidentally ran self.stream_game() though my turn...")
+                            if self.vebrose == True:
+
+                                print("Accidentally ran self.stream_game() though my turn...")
                             self.current_move = True
                             return
                             
@@ -448,12 +470,16 @@ try:
                             self.game_over = True
 
                         else:
-                            print("checking checkpoint 6...")
+                            if self.vebrose == True:
 
-                            print(f"DEBUG Opponent Move: {move}")
-                            print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
+                                print("checking checkpoint 6...")
+
+                                print(f"DEBUG Opponent Move: {move}")
+                                print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
                             self.Last_Move = move
-                            print("check complete!")
+                            if self.vebrose == True:
+
+                                print("check complete!")
                             
                             self.opponent_move = move
                             
@@ -529,9 +555,9 @@ try:
                             next_state = self.board_to_state(board1)
                             self.update_model(state, move, reward)
                             self.remember(state, move, reward, next_state, done)
-                        if 270 <= len(self.memory):
+                        if self.batch_size <= len(self.memory):
                             print("Now commencing replay (may take a while)")
-                            self.replay(batch_size, board1)
+                            self.replay(self.batch_size, board1)
 
                             self.memory = []
                             # Clear the GPU cache
@@ -785,8 +811,9 @@ try:
         def replay(self, batch_size, board):
             # if len(self.short_term_memory) < batch_size // 2 or len(self.memory) < batch_size // 2:
             #     return
+            if self.vebrose == True:
             
-            print("DEBUG: actually doing what I am supposed to...")
+                print("DEBUG: actually doing what I am supposed to...")
 
             # Sample from long-term memory (self.memory)
             long_term_batch = random.sample(self.memory, batch_size // 2)
@@ -826,6 +853,8 @@ try:
 
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
+            if self.vebrose == True:
+
             print("DONE!")
 
 
@@ -950,8 +979,9 @@ try:
 
                       
                                     except Exception as e:
-                                        print(f"something happened, checking: {e}")
-                                        print(f"Caught an exception of type: {type(e)}")
+                                        if self.vebrose == True:
+                                            print(f"something happened, checking: {e}")
+                                            print(f"Caught an exception of type: {type(e)}")
                                         if self.error == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
@@ -1039,10 +1069,12 @@ try:
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
-                            print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                            if self.vebrose == True:
+                                print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                             self.replay(batch_size, board)
+                            if self.vebrose == True:
 
-                            print("Saving/Updating model weights")
+                                print("Saving/Updating model weights")
                             # Save the model weights after each episode
                             torch.save({
                             'model_state_dict': self.model.state_dict(),
@@ -1072,10 +1104,13 @@ try:
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
-                            print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
-                            self.replay(batch_size, board)
+                            if self.vebrose == True:
 
-                            print("Saving/Updating model weights")
+                                print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                            self.replay(batch_size, board)
+                            if self.vebrose == True:
+
+                                print("Saving/Updating model weights")
                             # Save the model weights after each episode
                             torch.save({
                             'model_state_dict': self.model.state_dict(),
@@ -1106,10 +1141,13 @@ try:
                         self.draws += 1
 
                         if batch_size <= len(self.memory):
-                            print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
-                            self.replay(batch_size, board)
+                            if self.vebrose == True:
 
-                            print("Saving/Updating model weights")
+                                print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                            self.replay(batch_size, board)
+                            if self.vebrose == True:
+
+                                print("Saving/Updating model weights")
                             # Save the model weights after each episode
                             torch.save({
                             'model_state_dict': self.model.state_dict(),
