@@ -1,7 +1,8 @@
 ![GuineaBot4](/730b2f04-e42c-450f-90c2-51ea20b5b272.jpg)
 
   [Report bug][issue-link]
-  ·[wiki][wiki-link]
+  · [wiki][wiki-link]
+  · [Lichess API Usage](https://lichess.org/api#tag/Bot)
 
   Copyright © 2022 GuineaPigLord. All rights reserved.
   
