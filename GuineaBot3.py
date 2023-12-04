@@ -1041,7 +1041,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.1.8, copyrighted (©) 2022 april 23")
+                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april 23")
                 episode = 0
                 counter = 0
                 self.losses = 0
