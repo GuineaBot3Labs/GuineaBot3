@@ -314,8 +314,8 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-LICHESS-BOT-API-TOKEN-HERE'
-            self.name = 'YOUR-USERNAME-HERE'
+            self.token = 'YOUR-API-TOKEN'
+            self.name = 'YOUR-USERNAME'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -545,28 +545,28 @@ try:
                     move_num = 0
                     while not board2.is_checkmate() and not board2.is_game_over() and not board2.is_stalemate() and not board2.is_insufficient_material() and not board2.is_seventyfive_moves() and not board2.is_variant_draw(): 
                         state = self.board_to_state(board2)
-                        os.system('clear')
-                        self.print_board(board2)
                         move_num += 1
                         move = self.choose_action(state, list(board2.legal_moves), board2, True, move_num)
                         # print(f"Best move determined by GuineaBot3: {move}")
                         board2.push(move)
                         self.color = board2.turn
-        
-                    if batch_size <= len(self.memory_white):
+                        os.system('clear')
+                        self.print_board(board2)
+                                
+                    if len(self.memory_white) >= self.batch_size:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
-                        self.replay(batch_size, board, selfplay)
+                        self.replay(batch_size, board, True, chess.WHITE)
         
                         self.memory_white = []
                         self.short_term_memory_white = []
                         # Clear the GPU cache
                         gc.collect()
                         torch.cuda.empty_cache()
-                    elif batch_size <= len(self.memory_black):
+                    elif len(self.memory_black) >= self.batch_size:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
-                        self.replay(batch_size, board, selfplay)
+                        self.replay(batch_size, board, True, chess.BLACK)
         
                         self.memory_black = []
                         self.short_term_memory_black = []
@@ -601,21 +601,31 @@ try:
                             done = board1.is_game_over()
                             next_state = self.board_to_state(board1)
                             self.update_model(state, move, reward)
-                            self.remember(state, move, reward, next_state, done, True)
-                        if self.batch_size <= len(self.memory):
+                            self.remember(state, move, reward, next_state, done, True, board.turn)
+                        if len(self.memory_white) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
-                            self.replay(self.batch_size, board1, True)
+                            self.replay(self.batch_size, board1, True, chess.WHITE)
 
-                            self.memory = []
-                            self.short_term_memory = []
+                            self.memory_white = []
+                            self.short_term_memory_white = []
+                            # Clear the GPU cache
+                            gc.collect()
+                            torch.cuda.empty_cache()
+                        elif len(self.memory_black) >= self.batch_size:
+                            print("Now commencing replay (may take a while)")
+                            self.replay(self.batch_size, board1, True, chess.BLACK)
+
+                            self.memory_black = []
+                            self.short_term_memory_black = []
                             # Clear the GPU cache
                             gc.collect()
                             torch.cuda.empty_cache()
                         else:
-                            self.short_term_memory = []
+                            self.short_term_memory_white = []
+                            self.short_term_memory_black = []
 
                 print("\nAll games processed. Total games:", game_count)
-                self.simulate_self_play(80)
+                self.simulate_self_play(100)
             except KeyboardInterrupt:
                 pass
 
@@ -891,7 +901,7 @@ try:
                             return best_move
 
 
-        def replay(self, batch_size, board, selfplay=False):
+        def replay(self, batch_size, board, selfplay=False, color=None):
             if self.vebrose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
@@ -941,92 +951,96 @@ try:
                             loss.backward()
                             self.optimizer.step()
             else:
-                # Sample from long-term memory (self.memory_white)
-                long_term_batch = random.sample(self.memory_white, batch_size // 2)
+                if color == chess.WHITE:
+                    # Sample from long-term memory (self.memory_white)
+                    print(len(self.memory_white))
+                    long_term_batch = random.sample(self.memory_white, batch_size // 2)
 
-                # Sample from short-term memory (self.short_term_memory_white)
-                short_term_batch = random.sample(self.short_term_memory_white, min(len(self.short_term_memory), batch_size // 2))
+                    # Sample from short-term memory (self.short_term_memory_white)
+                    short_term_batch = random.sample(self.short_term_memory_white, min(len(self.short_term_memory_white), batch_size // 2))
 
-                # Combine both batches
-                batch = long_term_batch + short_term_batch
+                    # Combine both batches
+                    batch = long_term_batch + short_term_batch
 
-                for state, action, reward, next_state, done in tqdm(batch, desc="Processing white batch"):
-                    state = torch.tensor(state, dtype=torch.float)
-                    next_state = torch.tensor(next_state, dtype=torch.float)
-                    reward = torch.tensor(reward, dtype=torch.float)
+                    for state, action, reward, next_state, done in tqdm(batch, desc="Processing white batch"):
+                        state = torch.tensor(state, dtype=torch.float)
+                        next_state = torch.tensor(next_state, dtype=torch.float)
+                        reward = torch.tensor(reward, dtype=torch.float)
 
-                    if done:
-                        target = reward
-                    else:
-                        # Double Q-Network update
-                        with torch.no_grad():
-                            next_state_q_values = self.target_model(next_state).view(-1)
-        
-                        next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
-        
-                        next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
-                        if next_state_legal_q_values.nelement() == 0:
-                            if self.vebrose:
-                                print("DEBUG: next_state_legal_q_values is empty")
-                            continue
+                        if done:
+                            target = reward
                         else:
-                            best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
-                            target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
+                            # Double Q-Network update
+                            with torch.no_grad():
+                                next_state_q_values = self.target_model(next_state).view(-1)
         
-                            # Convert move to a unique index
-                            action_index = self.move_to_index(board, action)
+                            next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
         
-                            target_f = self.model(state).detach().clone()
-                            target_f[0, action_index] = target
+                            next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
+                            if next_state_legal_q_values.nelement() == 0:
+                                if self.vebrose:
+                                    print("DEBUG: next_state_legal_q_values is empty")
+                                continue
+                            else:
+                                best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
+                                target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
+        
+                                # Convert move to a unique index
+                                action_index = self.move_to_index(board, action)
+        
+                                target_f = self.model(state).detach().clone()
+                                target_f[0, action_index] = target
         
         
-                            loss = self.loss_fn(target_f, self.model(state))
-                            self.optimizer.zero_grad()
-                            loss.backward()
-                            self.optimizer.step()
-                # Sample from long-term memory (self.memory_black)
-                long_term_batch = random.sample(self.memory_black, batch_size // 2)
+                                loss = self.loss_fn(target_f, self.model(state))
+                                self.optimizer.zero_grad()
+                                loss.backward()
+                                self.optimizer.step()
+                else:
+                    # Sample from long-term memory (self.memory_black)
+                    print(len(self.memory_black))
+                    long_term_batch = random.sample(self.memory_black, batch_size // 2)
 
-                # Sample from short-term memory (self.short_term_memory)
-                short_term_batch = random.sample(self.short_term_memory_black, min(len(self.short_term_memory), batch_size // 2))
+                    # Sample from short-term memory (self.short_term_memory)
+                    short_term_batch = random.sample(self.short_term_memory_black, min(len(self.short_term_memory_black), batch_size // 2))
 
-                # Combine both batches
-                batch = long_term_batch + short_term_batch
+                    # Combine both batches
+                    batch = long_term_batch + short_term_batch
 
-                for state, action, reward, next_state, done in tqdm(batch, desc="Processing black batch"):
-                    state = torch.tensor(state, dtype=torch.float)
-                    next_state = torch.tensor(next_state, dtype=torch.float)
-                    reward = torch.tensor(reward, dtype=torch.float)
-
-                    if done:
-                        target = reward
-                    else:
-                        # Double Q-Network update
-                        with torch.no_grad():
-                            next_state_q_values = self.target_model(next_state).view(-1)
-        
-                        next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
-        
-                        next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
-                        if next_state_legal_q_values.nelement() == 0:
-                            if self.vebrose:
-                                print("DEBUG: next_state_legal_q_values is empty")
-                            continue
+                    for state, action, reward, next_state, done in tqdm(batch, desc="Processing black batch"):
+                        state = torch.tensor(state, dtype=torch.float)
+                        next_state = torch.tensor(next_state, dtype=torch.float)
+                        reward = torch.tensor(reward, dtype=torch.float)
+    
+                        if done:
+                            target = reward
                         else:
-                            best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
-                            target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
+                            # Double Q-Network update
+                            with torch.no_grad():
+                                next_state_q_values = self.target_model(next_state).view(-1)
+            
+                            next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
         
-                            # Convert move to a unique index
-                            action_index = self.move_to_index(board, action)
+                            next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
+                            if next_state_legal_q_values.nelement() == 0:
+                                if self.vebrose:
+                                    print("DEBUG: next_state_legal_q_values is empty")
+                                continue
+                            else:
+                                best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
+                                target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
         
-                            target_f = self.model(state).detach().clone()
-                            target_f[0, action_index] = target
+                                # Convert move to a unique index
+                                action_index = self.move_to_index(board, action)
+        
+                                target_f = self.model(state).detach().clone()
+                                target_f[0, action_index] = target
         
         
-                            loss = self.loss_fn(target_f, self.model(state))
-                            self.optimizer.zero_grad()
-                            loss.backward()
-                            self.optimizer.step()
+                                loss = self.loss_fn(target_f, self.model(state))
+                                self.optimizer.zero_grad()
+                                loss.backward()
+                                self.optimizer.step()
         
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
@@ -1097,7 +1111,7 @@ try:
                         print("Skipping...\n")
                 while episodes > episode:
 
-                    if len(self.move_rewards) >= 1000:
+                    if len(self.move_rewards) >= 1000:	
                         self.move_rewards.clear()
                     self.game_over = False
                     self.is_stalemate = False
@@ -1131,7 +1145,7 @@ try:
                             state = self.board_to_state(board)
                             action = self.choose_action(state, list(board.legal_moves), board)
                             moves += 1
-                            self.make_move(action)
+                            self.make_move(action)                                            
                             os.system('clear')
                             self.print_board(board)
                             if len(self.memory) >= batch_size:
@@ -1468,7 +1482,7 @@ try:
                 reward += 100 if board.turn != color else -100
 
             elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition() or board.is_variant_draw():
-                reward += -1000
+                reward += -10000
 
             if len(board.move_stack) >= 2 and move == board.peek():
                 reward -= 600
