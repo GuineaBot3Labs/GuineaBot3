@@ -68,8 +68,3 @@ and on windows on your 3 command prompts type:
 
     py challenge_bot.py
 
-NOTE:
-Stockfish is used in GuineaBot3ExperimentalBootStrap.py, I am not taking any credit because stockfish is responsible for making the bootstrap possible, please note that you may have to set the epsilon to a reasonable amount like 0.4 otherwise stockfish will basically play for GuineaBot3.
-
-[issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
-[wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
