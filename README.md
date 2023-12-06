@@ -68,3 +68,5 @@ and on windows on your 3 command prompts type:
 
     py challenge_bot.py
 
+[issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
+[wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
