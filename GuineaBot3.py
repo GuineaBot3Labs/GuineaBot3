@@ -42,9 +42,7 @@ try:
             super(Attention, self).__init__()
             self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
             self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+
 
         def forward(self, x):
             # x shape: [batch, channels, height, width]
@@ -54,9 +52,7 @@ try:
             # Apply attention
             x, _ = self.attention1(x, x, x)
             x, _ = self.attention2(x, x, x)
-            x, _ = self.attention3(x, x, x)
-            x, _ = self.attention4(x, x, x)
-            x, _ = self.attention5(x, x, x)
+
 
 
             # Combine attention outputs (you can also concatenate or use other methods)
@@ -72,7 +68,7 @@ try:
 
 
     class ChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
+        def __init__(self, num_convs=3, num_fcs=7):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
@@ -179,7 +175,7 @@ try:
 
 
     class TargetChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
+        def __init__(self, num_convs=3, num_fcs=7):
             super(TargetChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
