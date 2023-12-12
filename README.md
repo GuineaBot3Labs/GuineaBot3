@@ -11,9 +11,8 @@
 
 A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
 
-### COMPACT EDITION, WHEEK WHEEK!!! ###
-
 ## UPDATES ##
+### COMPACT EDITION, WHEEK WHEEK!!! ###
 In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bill, it can run 4 instances on a single 12 GB GPU, adding that up it is only 3 GB allocation, very suitable for a CPU even, WHEEK WHEEK!!!
 
 ## SETUP ##
@@ -68,7 +67,7 @@ and on windows on your 3 command prompts type:
     py waitforrequests.py
 
     py challenge_bot.py
-### Contribution ###
+## Contribution ##
 
 You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Click on the "New branch" button to make a new branch, be it compact, CPU compatible, arm robot, failure is only another achievement! Without failure, we wouldn't have learned coding, now let's learn AI!
 
