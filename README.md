@@ -49,7 +49,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try to make my model more lightweight, I would appreciate the help because I am currently working on this same part.
+finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try out my more compact bot [here][compact-link]
 
 ## USAGE ##
 
@@ -68,6 +68,9 @@ and on windows on your 3 command prompts type:
     py waitforrequests.py
 
     py challenge_bot.py
+
+and just like that you are up and running, WHEEK WHEEK!!!
+
 ### Contribution ###
 
 You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Click on the "New branch" button to make a new branch, be it compact, CPU compatible, arm robot, failure is only another achievement! Without failure, we wouldn't have learned coding, now let's learn AI!
@@ -76,3 +79,4 @@ You do not need any pull requests here, however please be cautious, some could p
 [wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
 [API-link]: https://lichess.org/api#tag/Bot
 [contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/branches
+[compact-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/tree/compact
