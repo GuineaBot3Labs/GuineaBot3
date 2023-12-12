@@ -49,7 +49,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try to make my model more lightweight, I would appreciate the help because I am currently working on this same part.
+finally, PLAY WITH GuineaBot3! (this part is optional) if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a>, of course this is the big bot, so I will make a new account for the compact version soon! WHEEK WHEEK!!!
 
 ## USAGE ##
 
