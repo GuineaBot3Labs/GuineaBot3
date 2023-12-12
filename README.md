@@ -2,7 +2,8 @@
 
   [Report bug][issue-link]
   · [wiki][wiki-link]
-  · [Lichess API Usage](https://lichess.org/api#tag/Bot)
+  · [Lichess API Usage][API-link]
+  · [Contribute][contribution-link]
 
   Copyright © 2022 GuineaPigLord. All rights reserved.
   
@@ -67,6 +68,10 @@ and on windows on your 3 command prompts type:
     py waitforrequests.py
 
     py challenge_bot.py
+### Contribution ###
 
+You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Click on the "New branch" button to make a new branch, be it compact, CPU compatible, arm robot, failure is only another achievement! Without failure, we wouldn't have learned coding, now let's learn AI!
 [issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
 [wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
+[API-link]: https://lichess.org/api#tag/Bot
+[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/branches
