@@ -18,7 +18,7 @@ In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pg
 
 ## SETUP ##
 
-You can set up this bot very easily, unlike it's big brother, it does not requires a very good GPU cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
+You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not requires a very good GPU cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
@@ -49,7 +49,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally, PLAY WITH GuineaBot3! (this part is optional) if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a>, of course this is the big bot, so I will make a new account for the compact version soon! WHEEK WHEEK!!!
+finally, you can skip this part as this part is optional, if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a>, of course this is the big bot, so I will make a new account for the compact version soon! WHEEK WHEEK!!!
 
 ## USAGE ##
 
