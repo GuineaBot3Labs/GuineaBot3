@@ -14,11 +14,11 @@ A lichess bot that self learns and improves over time. You can watch GuineaBot3'
 ### COMPACT EDITION, WHEEK WHEEK!!! ###
 
 ## UPDATES ##
-In GuineaBot3 v4.1.9, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bill, it can run 4 instances on a single 12 GB GPU, adding that up it is only 4 GB allocation, very suitable for a cpu even, WHEEK WHEEK!!!
+In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bill, it can run 4 instances on a single 12 GB GPU, adding that up it is only 4 GB allocation, very suitable for a cpu even, WHEEK WHEEK!!!
 
 ## SETUP ##
 
-You can set up this bot very easily, it requires a very good GPU cuda compadible and multicore, you can vary how many cores you want to use.
+You can set up this bot very easily, unlike it's big brother, it does not requires a very good GPU cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
@@ -39,7 +39,7 @@ for windows go to this <a href="https://python.org">website</a> and download the
 
 ### FINAL STEPS ###
 
-sign up for lichess.org and upgrade your account to a bot account, then use pip and do the following command:
+sign up for lichess.org and upgrade your account to a bot account see the API usage [here][API-link], then use pip and do the following command:
 
 for linux:
 
