@@ -11,7 +11,7 @@
 
 A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
 
-### WARNING: THIS CODE NEEDS A SUPER HIGH END GPU WHICH MAY NOT BE ACCESSIBLE FOR EVERYONE, I AM CURRENTLY WORKING ON A MORE COMPACT VERSION BUT FOR NOW YOU WILL NEED A CUDA COMPATIBLE GPU WITH A MEMORY OF 24GBs. I USED A TESLA K80 FOR THIS, YOU WILL NEED TO INSTALL TORCH MANUALLY IF YOU WANT TO DO THIS WITH THE SAME GPU. ###
+### WARNING: THIS CODE NEEDS A SUPER HIGH END GPU WHICH MAY NOT BE ACCESSIBLE FOR EVERYONE, [HERE IS A MORE COMPACT VERSION][compact-link], HOWEVER, FOR THIS BRANCH YOU WILL NEED A CUDA COMPATIBLE GPU WITH A MEMORY OF 24GBs. I USED A TESLA K80 FOR THIS, YOU WILL NEED TO INSTALL TORCH MANUALLY IF YOU WANT TO DO THIS WITH THE SAME GPU. ###
 
 ## UPDATES ##
 In GuineaBot3 v4.1.9, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. Please be cautious as this project can severely add to your electricity bill.
@@ -49,7 +49,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try out my more compact bot [here][compact-link]
+finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try out my more compact bot [here.][compact-link]
 
 ## USAGE ##
 
