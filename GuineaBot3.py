@@ -137,9 +137,9 @@ try:
             
             return x
             
-        def mutate(self):
+        def mutate(self, device):
         
-            self.to('cuda:0')
+            self.to(device)
             min_fcs = 13  # Minimum number of fully connected layers
             max_fcs = 26  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
@@ -170,7 +170,7 @@ try:
                     if random.random() < 0.1:
                         param += torch.randn_like(param) * noise
 
-            self.to('cuda:0')
+            self.to(device)
             
 
 
@@ -241,8 +241,8 @@ try:
 
             return x
 
-        def mutate(self):
-            self.to('cuda:0')
+        def mutate(self, device):
+            self.to(device)
             min_fcs = 10  # Minimum number of fully connected layers
             max_fcs = 26  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
@@ -277,30 +277,25 @@ try:
                     if random.random() < 0.1:
                         param += torch.randn_like(param) * noise
 
-            self.to('cuda:0')
+            self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False):
+        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, device='cpu'):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
             self.vebrose = vebrose
-            # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
-            self.devices = [torch.device('cuda:0'), torch.device('cuda:1')]
+            # Create the device variable, will work with 'cuda:0', 'cuda:1', and 'cpu'
+            self.device = torch.device(device)
 
             # Create the online model and the target model
             self.model = ChessNet()
             self.target_model = TargetChessNet()
 
-            # Use DataParallel to wrap the models
-            self.model = nn.DataParallel(self.model, device_ids=self.devices)
-            self.target_model = nn.DataParallel(self.target_model, device_ids=self.devices)
-            # Move the models to device
-            self.model = self.model.to(self.devices[0])  # DataParallel requires the model to be on a device    
-            self.target_model = self.target_model.to(self.devices[0])  # Same for the target model
- 
-            # self.model = nn.parallel.DistributedDataParallel(self.model)
-            # self.target_model = nn.parallel.DistributedDataParallel(self.target_model)
+            # Move models to device
+            self.model = self.model.to(self.device)
+            self.target_model = self.target_model.to(self.device)
+
             self.epsilon = epsilon
             self.epsilon_min = epsilon_min
             self.epsilon_decay = epsilon_decay
@@ -338,7 +333,7 @@ try:
             self.current_move = False
 
 
-            print("Using", torch.cuda.device_count(), "GPUs!")
+            print(f"Using device: {device}!")
             # self.model = torch.nn.parallel.DistributedDataParallel(self.target_model)
             # self.target_model = torch.nn.parallel.DistributedDataParallel(self.target_model)
 
@@ -558,7 +553,8 @@ try:
                         self.short_term_memory_white = []
                         # Clear the GPU cache
                         gc.collect()
-                        torch.cuda.empty_cache()
+                        if self.device.startswith('cuda'):
+                            torch.cuda.empty_cache()
                     elif len(self.memory_black) >= self.batch_size:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
@@ -568,7 +564,8 @@ try:
                         self.short_term_memory_black = []
                         # Clear the GPU cache
                         gc.collect()
-                        torch.cuda.empty_cache()
+                        if self.device.startswith('cuda'):
+                            torch.cuda.empty_cache()
                     else:
                         self.short_term_memory_white = []
                         self.short_term_memory_black = []
@@ -606,7 +603,8 @@ try:
                             self.short_term_memory_white = []
                             # Clear the GPU cache
                             gc.collect()
-                            torch.cuda.empty_cache()
+                            if self.device.startswith('cuda'):
+                                torch.cuda.empty_cache()
                         elif len(self.memory_black) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
                             self.replay(self.batch_size, board1, True, chess.BLACK)
@@ -615,7 +613,8 @@ try:
                             self.short_term_memory_black = []
                             # Clear the GPU cache
                             gc.collect()
-                            torch.cuda.empty_cache()
+                            if self.device.startswith('cuda'):
+                                torch.cuda.empty_cache()
                         else:
                             self.short_term_memory_white = []
                             self.short_term_memory_black = []
@@ -717,7 +716,7 @@ try:
 
             action_index = self.move_to_index(board, action)
             target_f = self.model(state).detach().clone()
-            target_f = target_f.to('cuda:0')  # Move target_f to cuda:0
+            target_f = target_f.to(self.device)  # Move target_f to device
             target_f[0, action_index] = reward
 
             loss = self.loss_fn(target_f, self.model(state))
@@ -725,9 +724,9 @@ try:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
-            target_f2 = self.target_model(state).detach().clone().to('cuda:0')
+            target_f2 = self.target_model(state).detach().clone().to(self.device)
             target_f2[0, action_index] = reward
-            loss2 = self.loss_fn(target_f2, self.target_model(state).to('cuda:0'))
+            loss2 = self.loss_fn(target_f2, self.target_model(state).to(self.device))
             self.optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
@@ -739,7 +738,7 @@ try:
             ### Update the main model ###
             opponent_move_index = self.move_to_index(board, opponent_move)
             target_f2 = self.model(state).detach().clone()
-            target_f2 = target_f2.to('cuda:0')  # Move target_f to cuda:0
+            target_f2 = target_f2.to(self.device)  # Move target_f to device
     
             # Update the Q-value for the opponent's move with the negative reward
             target_f2[0, opponent_move_index] = -reward
@@ -751,9 +750,9 @@ try:
             self.optimizer.step()
             
             ### Update the target model ###
-            target_f2 = self.target_model(state).detach().clone().to('cuda:0')
+            target_f2 = self.target_model(state).detach().clone().to(self.device)
             target_f2[0, opponent_move_index] = reward
-            loss2 = self.loss_fn(target_f2, self.target_model(state).to('cuda:0'))
+            loss2 = self.loss_fn(target_f2, self.target_model(state).to(self.device))
             self.optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
@@ -774,7 +773,7 @@ try:
                                             print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
-                                        state = state.to('cuda:0')  # Move the state to GPU
+                                        state = state.to(self.device)  # Move the state to GPU
 
                                         q_values = self.model(state).detach().view(-1)
                                         target_q_values = self.target_model(state).detach().view(-1)
@@ -793,7 +792,7 @@ try:
                                         original_piece_type = board.piece_at(move.from_square).piece_type if board.piece_at(move.from_square) else None
                                         board.push(move)
                                         next_state = self.board_to_state(board)
-                                        next_state.to('cuda:0')
+                                        next_state.to(self.device)
                                         reward = self.get_reward(board, self.color, move, original_piece_type, selfplay, move_num)
                                         if np.isnan(reward) or np.isinf(reward):
                                             reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
@@ -828,7 +827,7 @@ try:
                             board.push(best_move)
                         reward = self.get_reward(board, self.color, best_move, original_piece_type, selfplay)
                         next_state = self.board_to_state(board)
-                        next_state.to('cuda:0')
+                        next_state.to(self.device)
                         self.update_model(state, best_move, reward)
 
                         if self.vebrose:
@@ -840,7 +839,7 @@ try:
                         self.model.eval()
                         self.target_model.eval()
                         state = self.board_to_state(board)
-                        state = state.to('cuda:0')  # Move the state to GPU
+                        state = state.to(self.device)  # Move the state to GPU
 
 
                         for i in range(11):
@@ -857,7 +856,7 @@ try:
                                 reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
                             self.move_rewards.append(reward)
                             next_state = self.board_to_state(board)
-                            next_state.to('cuda:0')
+                            next_state.to(self.device)
                             best_move = move
                             best_state = next_state
                             self.best_reward = reward
@@ -1051,7 +1050,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april 23")
+                print("GuineaBot3 v4.1.9 (COMPACT EDITION, WHEEK WHEEK!!!), copyrighted (©) 2022 april 23")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1233,7 +1232,8 @@ try:
                                                 self.memory = []
                                                 # Clear the GPU cache
                                                 gc.collect()
-                                                torch.cuda.empty_cache()
+                                                if self.device.startswith('cuda'):
+                                                    torch.cuda.empty_cache()
                         
                                             self.short_term_memory = []
                                             self.game_id = None
@@ -1276,7 +1276,8 @@ try:
                             }, "agent1_model.pt")
                             self.memory = []
                             gc.collect()
-                            torch.cuda.empty_cache()
+                            if self.device.startswith('cuda'):
+                                torch.cuda.empty_cache()
                         self.short_term_memory = []
                         self.game_over = True
 
@@ -1313,7 +1314,8 @@ try:
                             self.memory = []
                             # Clear the GPU cache
                             gc.collect()
-                            torch.cuda.empty_cache()
+                            if self.device.startswith('cuda'):
+                                torch.cuda.empty_cache()
                         
                         self.short_term_memory = []
                         self.game_over = True
@@ -1349,7 +1351,8 @@ try:
                             }, "agent1_model.pt")
                             self.memory = []
                             gc.collect()
-                            torch.cuda.empty_cache()
+                            if self.device.startswith('cuda'):
+                                torch.cuda.empty_cache()
                         
                         
                         self.short_term_memory = []
