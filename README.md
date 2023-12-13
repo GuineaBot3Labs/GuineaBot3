@@ -17,7 +17,7 @@ In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pg
 
 ## SETUP ##
 
-You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not requires a very good GPU cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
+You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not requires a very good GPU that is cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
@@ -74,4 +74,4 @@ You do not need any pull requests here, however please be cautious, some could p
 [issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
 [wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
 [API-link]: https://lichess.org/api#tag/Bot
-[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/branches
+[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/fork
