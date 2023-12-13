@@ -78,5 +78,5 @@ You do not need any pull requests here, however please be cautious, some could p
 [issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
 [wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
 [API-link]: https://lichess.org/api#tag/Bot
-[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/branches
+[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/fork
 [compact-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/tree/compact
