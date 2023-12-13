@@ -7,6 +7,7 @@ from tqdm import tqdm
 from art import print_acsii_art
 import chess.engine
 import copy
+import platform
 from timeout_decorator import timeout
 from collections import OrderedDict
 import torch
@@ -483,7 +484,14 @@ try:
                 self.client.bots.make_move(self.game_id, move)
             except Exception:
                 pass
-
+        def clearscreen(self):
+            x = platform.platform()
+            if x.startswith("Linux"):
+                os.system('clear')
+            elif x.startswith("Windows"):
+                os.system('cls')
+            else:
+                os.system('clear')
                 
         def disable_function(func):
             @wraps(func)
@@ -541,7 +549,7 @@ try:
                         # print(f"Best move determined by GuineaBot3: {move}")
                         board2.push(move)
                         self.color = board2.turn
-                        os.system('clear')
+                        self.clearscreen()
                         self.print_board(board2)
                                 
                     if len(self.memory_white) >= self.batch_size:
@@ -1141,7 +1149,7 @@ try:
                             action = self.choose_action(state, list(board.legal_moves), board)
                             moves += 1
                             self.make_move(action)                                            
-                            os.system('clear')
+                            self.clearscreen()
                             self.print_board(board)
                             if len(self.memory) >= batch_size:
                                 print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1246,7 +1254,7 @@ try:
                                 pass    
  
                     if board.is_checkmate() and board.turn != self.color:
-                        os.system('clear')
+                        self.clearscreen()
                         self.print_board(board)
                         print(f"GuineaBOT Won!")
                         game += 1
@@ -1282,7 +1290,7 @@ try:
                         self.game_over = True
 
                     if board.is_checkmate() and board.turn == self.color:
-                        os.system('clear')
+                        self.clearscreen()
                         self.print_board(board)
                         print(f"GuineaBOT Lost!")
                         try:
@@ -1512,7 +1520,7 @@ try:
                      done = True
                      state = self.board_to_state(board)
                      reward = -2000
-                     os.system('clear')
+                     self.clearscreen()
                      self.print_board(board)
                      print("Draw!")
                      self.draws += 1
@@ -1525,7 +1533,7 @@ try:
                         board.set_fen(self.backupfen)
                         self.lastfen = self.backupfen
                         board.turn = self.color
-                        os.system('clear')
+                        self.clearscreen()
                         self.print_board(board)
                         if len(self.memory) >= batch_size:
                             print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1560,7 +1568,7 @@ try:
                          original_piece_type = board.piece_at(opponent_move.from_square).piece_type if board.piece_at(opponent_move.from_square) else None
                          board.push(opponent_move)
                          reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
-                         os.system('clear')
+                         self.clearscreen()
                          self.print_board(board)
                          if len(self.memory) >= batch_size:
                              print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1581,7 +1589,7 @@ try:
                          
                     elif self.is_promotion(opponent_move):
                         board.set(self.backup_fen)
-                        os.system('clear')
+                        self.clearscreen()
                         self.print_board(board)
                         if len(self.memory) >= batch_size:
                             print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1608,7 +1616,7 @@ try:
                     board.set_fen(self.backupfen)
                     self.lastfen = self.backupfen
                     board.turn = self.color
-                    os.system('clear')
+                    self.clearscreen()
                     self.print_board(board)
                     if len(self.memory) >= batch_size:
                         print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
