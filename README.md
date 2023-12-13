@@ -25,7 +25,7 @@ You will need to have python3.10 or python3.11 for this code, you can download i
 
     sudo apt install python3
     sudo apt install git
-    git clone https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot.git GuineaBot3
+    git clone -b compact https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot.git GuineaBot3
     cd GuineaBot3
 
 NOTE: You will have to do python3.10 from source, this is more difficult but can be rewarding. Follow the last 3 steps after installing from source.
