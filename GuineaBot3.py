@@ -588,7 +588,14 @@ try:
             try:
                 board1 = chess.Board()
                 game_count = 0
-                self.simulate_self_play(800)
+                while True:
+                    try:
+                        num_games = input("How many games do you want GuineaBot3 to selfplay?: ")
+                        num_games = int(num_games)
+                        break
+                    except ValueError:
+                        print("Invalid input. Please enter an number.")
+                self.simulate_self_play(num_games)
                 with open(file_path, 'r') as pgn_file:
                     while True:
                         game = chess.pgn.read_game(pgn_file)
