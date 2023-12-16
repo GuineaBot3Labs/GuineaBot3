@@ -75,8 +75,8 @@ and just like that you are up and running, WHEEK WHEEK!!!
 
 You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Click on the "New branch" button to make a new branch, be it compact, CPU compatible, arm robot, failure is only another achievement! Without failure, we wouldn't have learned coding, now let's learn AI!
 
-[issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
-[wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
+[issue-link]: /issues/new
+[wiki-link]: /wiki
 [API-link]: https://lichess.org/api#tag/Bot
-[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/fork
-[compact-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/tree/compact
+[contribution-link]: /fork
+[compact-link]: /tree/compact
