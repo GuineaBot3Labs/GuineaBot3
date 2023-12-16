@@ -1131,11 +1131,11 @@ try:
                     board.turn = chess.WHITE
                     counter = 0
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am ", self.name, ", powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am ", self.name, ", powered by GuineaBOTv4, COMPACT EDITION WHEEK WHEEK!!! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am ", self.name, ", powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, f"Hi! I am ", self.name, ", powered by GuineaBOTv4, COMPACT EDITION WHEEK WHEEK!!! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
                     except Exception:
                         pass
                     moves = 0
@@ -1391,6 +1391,8 @@ try:
                                 pass    
  
                     if board.is_checkmate() and board.turn != self.color:
+                        if type(move) != 'chess.Move':
+                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1435,6 +1437,8 @@ try:
                         self.game_over = True
 
                     if board.is_checkmate() and board.turn == self.color:
+                        if type(move) != 'chess.Move':
+                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1481,6 +1485,8 @@ try:
                         self.game_over = True
 
                     elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw():
+                        if type(move) != 'chess.Move':
+                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1531,7 +1537,12 @@ try:
                         moves = 0
                         self.game_over = False
                         done = False
+        
+        
 
+
+
+                        
             except Exception:
                 traceback.print_exc()
 
