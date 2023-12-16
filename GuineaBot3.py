@@ -1573,12 +1573,12 @@ try:
 
 
         
-
         def is_promotion(self, move):
-            # Assuming 'move' is a string like 'e7e8'
             move = move.uci()
             start, end = move[:2], move[2:]
             if start[1] == '7' and end[1] == '8':
+                return True
+            elif start[1] == '2' and end[1] == '1':
                 return True
             return False
 
