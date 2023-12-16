@@ -71,7 +71,8 @@ and on windows on your 3 command prompts type:
 
 You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Feel free to fork as much as you want, just follow the rules of conduct, be it chaotic, broken, exploded, failure is only another achievement! Without failure, we wouldn't have learned coding, now let's learn AI, WHEEK WHEEK!!!
 
-[issue-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/issues/new
-[wiki-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/wiki
+[issue-link]: ../../issues/new
+[wiki-link]: ../../wiki
 [API-link]: https://lichess.org/api#tag/Bot
-[contribution-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot/fork
+[contribution-link]: ../../fork
+[compact-link]: ../../tree/compact
