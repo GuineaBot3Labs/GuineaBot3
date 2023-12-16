@@ -1387,7 +1387,7 @@ try:
  
                     if board.is_checkmate() and board.turn != self.color:
                         if type(move) != 'chess.Move':
-                        move = chess.Move.from_uci(move)
+                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1432,7 +1432,8 @@ try:
                         self.game_over = True
 
                     if board.is_checkmate() and board.turn == self.color:
-                        move = chess.Move.from_uci(move)
+                        if type(move) != 'chess.Move':
+                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1479,7 +1480,8 @@ try:
                         self.game_over = True
 
                     elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw():
-                        move = chess.Move.from_uci(move)
+                        if type(move) != 'chess.Move':
+                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
