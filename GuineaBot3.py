@@ -1402,7 +1402,6 @@ try:
                         next_state = self.board_to_state(board)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
-                        self.print_board(board)
                         print(f"GuineaBOT Won!")
 
                         game += 1
@@ -1448,7 +1447,6 @@ try:
                         next_state = self.board_to_state(board)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
-                        self.print_board(board)
                         print(f"GuineaBOT Lost!")
                         try:
                             self.client.bots.post_message(self.game_id, "Congradulations! You have successfully beaten me! Good job!", spectator = False)
