@@ -314,7 +314,7 @@ try:
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'lip_9O4pbzMp6TC73i8JOwr8'
+            self.token = 'YOUR-API-TOKEN'
             self.name = 'GuineaBot3'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
