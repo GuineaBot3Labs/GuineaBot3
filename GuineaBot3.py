@@ -315,7 +315,7 @@ try:
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
             self.token = 'YOUR-API-TOKEN'
-            self.name = 'GuineaBot3'
+            self.name = 'YOUR-USERNAME'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
