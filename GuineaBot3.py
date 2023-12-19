@@ -1098,12 +1098,13 @@ try:
                     self.get_game(board)
                     board.turn = chess.WHITE
                     counter = 0
+                    message = "Hi! I am {}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am ", self.name, ", powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=True)
+                        self.client.bots.post_message(self.game_id, message, spectator=True)
                     except Exception:
                         pass
                     try:
-                        self.client.bots.post_message(self.game_id, f"Hi! I am ", self.name, ", powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!", spectator=False)
+                        self.client.bots.post_message(self.game_id, message, spectator=False)
                     except Exception:
                         pass
                     moves = 0
