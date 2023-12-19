@@ -1087,7 +1087,7 @@ try:
                            sys.stdout.write('\b')
 
 
-                    self.load_model_weights_both("agent1_model.pt")
+                    self.load_model_weights_both("GuineaBot3_LARGE.pt")
                     print('\nloaded model weights!')
                     time.sleep(1)
                 except Exception:
@@ -1369,7 +1369,7 @@ try:
                                                 'target_model_state_dict': self.target_model.state_dict(),
                                                 'optimizer_state_dict': self.optimizer.state_dict(),
                                                 # You can include more states here if needed
-                                                }, "agent1_model.pt")
+                                                }, "GuineaBot3_LARGE.pt")
                                                 self.memory = []
                                                 # Clear the GPU cache
                                                 gc.collect()
@@ -1423,7 +1423,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             # You can include more states here if needed
-                            }, "agent1_model.pt")
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
@@ -1468,7 +1468,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             # You can include more states here if needed
-                            }, "agent1_model.pt")
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory = []
                             # Clear the GPU cache
                             gc.collect()
@@ -1516,7 +1516,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             # You can include more states here if needed
-                            }, "agent1_model.pt")
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
