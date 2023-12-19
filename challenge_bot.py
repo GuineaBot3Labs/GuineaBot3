@@ -9,7 +9,7 @@ TOKEN = 'YOUR-ACCESS-KEY'
 tokensession = berserk.TokenSession(TOKEN)
 client = berserk.Client(session=tokensession)
 session = requests.Session()
-session.headers.update({"Authorization": f"Bearer lip_D3yKCVwoB6tr9JWTrr0W"})
+session.headers.update({"Authorization": f"Bearer {TOKEN}"})
 session_counter = 0  # Initialize a session counter
 
 class Game:
