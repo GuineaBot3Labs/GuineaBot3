@@ -723,9 +723,9 @@ try:
                     self.memory.append((state, action, reward, next_state, done))
                 
         def update_model(self, state, action, reward):
-
+            x = random.choice(list(self.devices))
             action_index = self.move_to_index(board, action)
-            target_f = self.model(state).detach().clone()
+            target_f = self.model(state).detach().clone().to(x)
             target_f = target_f.to('cuda:0')  # Move target_f to cuda:0
             target_f[0, action_index] = reward
 
@@ -734,40 +734,14 @@ try:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
-            target_f2 = self.target_model(state).detach().clone().to('cuda:0')
+            target_f2 = self.target_model(state).detach().clone().to(x)
+            target_f2 = target_f2.to('cuda:0')
             target_f2[0, action_index] = reward
             loss2 = self.loss_fn(target_f2, self.target_model(state).to('cuda:0'))
             self.optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
             self.optimizer.step()
-
-
-        def model_learn(self, state, opponent_move, reward):
-
-            ### Update the main model ###
-            opponent_move_index = self.move_to_index(board, opponent_move)
-            target_f2 = self.model(state).detach().clone()
-            target_f2 = target_f2.to('cuda:0')  # Move target_f to cuda:0
-    
-            # Update the Q-value for the opponent's move with the negative reward
-            target_f2[0, opponent_move_index] = -reward
-        
-            loss = self.loss_fn(target_f2, self.model(state))
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-            
-            ### Update the target model ###
-            target_f2 = self.target_model(state).detach().clone().to('cuda:0')
-            target_f2[0, opponent_move_index] = reward
-            loss2 = self.loss_fn(target_f2, self.target_model(state).to('cuda:0'))
-            self.optimizer.zero_grad()
-            loss2.backward()
-            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
                 try:
@@ -907,6 +881,7 @@ try:
 
 
         def replay(self, batch_size, board, selfplay=False, color=None):
+            x = random.choice(list(self.devices))
             if self.vebrose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
@@ -922,9 +897,9 @@ try:
                 batch = long_term_batch + short_term_batch
 
                 for state, action, reward, next_state, done in tqdm(batch, desc="Processing batch"):
-                    state = torch.tensor(state, dtype=torch.float)
-                    next_state = torch.tensor(next_state, dtype=torch.float)
-                    reward = torch.tensor(reward, dtype=torch.float)
+                    state = torch.tensor(state, dtype=torch.float).to(x)
+                    next_state = torch.tensor(next_state, dtype=torch.float).to(x)
+                    reward = torch.tensor(reward, dtype=torch.float).to(x)
 
                     if done:
                         target = reward
@@ -947,11 +922,12 @@ try:
                             # Convert move to a unique index
                             action_index = self.move_to_index(board, action)
         
-                            target_f = self.model(state).detach().clone()
+                            target_f = self.model(state).detach().clone().to(x)
+                            target_f = target_f.to('cuda:0')
                             target_f[0, action_index] = target
         
         
-                            loss = self.loss_fn(target_f, self.model(state))
+                            loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
                             self.optimizer.zero_grad()
                             loss.backward()
                             self.optimizer.step()
@@ -968,9 +944,9 @@ try:
                     batch = long_term_batch + short_term_batch
 
                     for state, action, reward, next_state, done in tqdm(batch, desc="Processing white batch"):
-                        state = torch.tensor(state, dtype=torch.float)
-                        next_state = torch.tensor(next_state, dtype=torch.float)
-                        reward = torch.tensor(reward, dtype=torch.float)
+                        state = torch.tensor(state, dtype=torch.float).to(x)
+                        next_state = torch.tensor(next_state, dtype=torch.float).to(x)
+                        reward = torch.tensor(reward, dtype=torch.float).to(x)
 
                         if done:
                             target = reward
@@ -989,15 +965,15 @@ try:
                             else:
                                 best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
                                 target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
-        
+            
                                 # Convert move to a unique index
                                 action_index = self.move_to_index(board, action)
         
-                                target_f = self.model(state).detach().clone()
+                                target_f = self.model(state).detach().clone().to(x)
+                                target_f = target_f.to('cuda:0')
                                 target_f[0, action_index] = target
         
-        
-                                loss = self.loss_fn(target_f, self.model(state))
+                                loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
@@ -1013,9 +989,9 @@ try:
                     batch = long_term_batch + short_term_batch
 
                     for state, action, reward, next_state, done in tqdm(batch, desc="Processing black batch"):
-                        state = torch.tensor(state, dtype=torch.float)
-                        next_state = torch.tensor(next_state, dtype=torch.float)
-                        reward = torch.tensor(reward, dtype=torch.float)
+                        state = torch.tensor(state, dtype=torch.float).to(x)
+                        next_state = torch.tensor(next_state, dtype=torch.float).t(x)
+                        reward = torch.tensor(reward, dtype=torch.float).to(x)
     
                         if done:
                             target = reward
@@ -1038,11 +1014,12 @@ try:
                                 # Convert move to a unique index
                                 action_index = self.move_to_index(board, action)
         
-                                target_f = self.model(state).detach().clone()
+                                target_f = self.model(state).detach().clone().to(x)
+                                target_f = target_f.to('cuda:0')
                                 target_f[0, action_index] = target
         
         
-                                loss = self.loss_fn(target_f, self.model(state))
+                                loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
@@ -1051,10 +1028,6 @@ try:
                 self.epsilon *= self.epsilon_decay
             if self.vebrose:
                 print("DONE!")
-
-
-
-
 
 
         def train(self, episodes, batch_size, board):
