@@ -917,7 +917,7 @@ try:
                             continue
                         else:
                             best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
-                            target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
+                            target = reward + self.gamma * self.model(next_state).view(-1).to(x)[best_next_action_index]
             
                             # Convert move to a unique index
                             action_index = self.move_to_index(board, action)
@@ -964,14 +964,15 @@ try:
                                 continue
                             else:
                                 best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
-                                target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
-            
+                                target = reward + self.gamma * self.model(next_state).view(-1).to(x)[best_next_action_index]
+                
                                 # Convert move to a unique index
                                 action_index = self.move_to_index(board, action)
         
                                 target_f = self.model(state).detach().clone().to(x)
                                 target_f = target_f.to('cuda:0')
                                 target_f[0, action_index] = target
+        
         
                                 loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
                                 self.optimizer.zero_grad()
@@ -1009,7 +1010,7 @@ try:
                                 continue
                             else:
                                 best_next_action_index = next_state_legal_move_indices[torch.argmax(next_state_legal_q_values).item()]
-                                target = reward + self.gamma * self.model(next_state).view(-1)[best_next_action_index]
+                                target = reward + self.gamma * self.model(next_state).view(-1).to(x)[best_next_action_index]
         
                                 # Convert move to a unique index
                                 action_index = self.move_to_index(board, action)
@@ -1028,6 +1029,7 @@ try:
                 self.epsilon *= self.epsilon_decay
             if self.vebrose:
                 print("DONE!")
+
 
 
         def train(self, episodes, batch_size, board):
