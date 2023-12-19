@@ -1580,11 +1580,8 @@ try:
                 return True
             return False
 
-
         def get_reward(self, board, color, move, original_piece_type, selfplay=False, move_num=0):
             reward = 0
-            mobility = len(list(board.legal_moves))
-            reward += 1 * mobility
 
             # Define piece values
             piece_values = {
@@ -1596,71 +1593,75 @@ try:
                 chess.KING: 1000
             }
 
-
-            # Reward based on material
+            # Reward based on material balance
             for piece, value in piece_values.items():
                 reward += len(board.pieces(piece, color)) * value
                 reward -= len(board.pieces(piece, not color)) * value
 
-            # Additional rewards for controlling the center
+            # Control of center squares
             center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
             for square in center_squares:
-                piece = board.piece_at(square)
-                if piece is not None and piece.color == color:
-                    reward += 100
+                if board.piece_at(square) and board.piece_at(square).color == color:
+                    reward += 20  # Reward for controlling each central square
 
-            # Reward for rooks on the seventh rank
-            for rook_square in board.pieces(chess.ROOK, color):
-                if (color == chess.WHITE and chess.square_rank(rook_square) == 6) or (color == chess.BLACK and chess.square_rank(rook_square) == 1):
-                    reward += 10
-            if self.is_promotion(move):
-                reward += 50
-            # Reward for controlling open files
-            for file in range(8):
-                pawns_on_file = board.pieces(chess.PAWN, color) & chess.BB_FILES[file]
-                if not pawns_on_file:
-                    rooks_on_file = board.pieces(chess.ROOK, color) & chess.BB_FILES[file]
-                    if rooks_on_file:
-                        reward += 1
+            # Piece mobility: Reward for the number of legal moves
+            reward += len(list(board.legal_moves)) * 0.1
 
-            # Reward for connected pawns
-            for pawn_square in board.pieces(chess.PAWN, color):
-                pawn_file = chess.square_file(pawn_square)
-                pawn_rank = chess.square_rank(pawn_square)
-                if pawn_file > 0 and board.piece_type_at(chess.square(pawn_rank, pawn_file - 1)) == chess.PAWN:
-                    reward += 1
-                if pawn_file < 7 and board.piece_type_at(chess.square(pawn_rank, pawn_file + 1)) == chess.PAWN:
-                    reward += 1
+            # Additional chess position considerations
+            if not selfplay:
+                # Checkmate
+                if board.is_checkmate():
+                    reward += 5000 if board.turn != color else -5000
+                # Stalemate or Insufficient Material
+                elif board.is_stalemate() or board.is_insufficient_material():
+                    reward -= 3000
+                # Fifty-move rule, Threefold or Fivefold repetition
+                elif board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
+                    reward -= 4000
+        
+                # King Safety: Penalize if the king is in check
+                if board.is_check():
+                    reward -= 50
+        
+                # Castling Rights
+                if board.has_castling_rights(color):
+                    reward += 30
 
-            # Reward for castling
-            if board.has_castling_rights(color):
-                reward += 100
+                # Pawn Structure: Penalize for isolated and doubled pawns
+                for square in board.pieces(chess.PAWN, color):
+                    file = chess.square_file(square)
+                    adjacent_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]  # Ensure file indices are within valid range
 
-            # Penalize for king safety
-            king_square = board.king(color)
-            if king_square is not None:
-                for square in chess.SQUARES:
-                    if board.is_attacked_by(not color, square):
-                        reward -= 100
-                    if board.is_attacked_by(color, square):
-                        reward += 100
+                    # Check for isolated pawn
+                    if not any(board.pieces(chess.PAWN, color) & chess.BB_FILES[f] for f in adjacent_files):
+                        reward -= 10
 
-            # Check for terminal states
-            if board.is_checkmate():
-                reward += 1000 if board.turn != color else -1000
-            elif board.is_check():
-                reward += 100 if board.turn != color else -100
+                    # Check for doubled pawn
+                    if len(list(board.pieces(chess.PAWN, color) & chess.BB_FILES[file])) > 1:
+                        reward -= 5
 
-            elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition() or board.is_variant_draw():
-                reward += -10000
+            else:
+                # Pawn Structure: Penalize for isolated and doubled pawns
+                for square in board.pieces(chess.PAWN, color):
+                    file = chess.square_file(square)
+                    adjacent_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]  # Ensure file indices are within valid range
 
-            if len(board.move_stack) >= 2 and move == board.peek():
-                reward -= 600
-            
-            if selfplay:
-                reward -= move_num
-            
-            reward = reward * 0.1
+                    # Check for isolated pawn
+                    if not any(board.pieces(chess.PAWN, color) & chess.BB_FILES[f] for f in adjacent_files):
+                        reward -= 10
+
+                    # Check for doubled pawn
+                    if len(list(board.pieces(chess.PAWN, color) & chess.BB_FILES[file])) > 1:
+                        reward -= 5
+
+                if board.is_checkmate():
+                    reward += 1000
+                # Higher penalty for draw conditions to encourage decisive outcomes
+                elif board.is_stalemate() or board.is_insufficient_material() or board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
+                    reward -= 5000
+
+            # Scale the reward
+            reward = reward * 0.01
             return reward
 
 
@@ -1683,7 +1684,7 @@ try:
                      done = True
                      state = self.board_to_state(board)
                      reward = -2000
-                     self.clearscreen()
+                     os.system('clear')
                      self.print_board(board)
                      print("Draw!")
                      self.draws += 1
@@ -1696,7 +1697,7 @@ try:
                         board.set_fen(self.backupfen)
                         self.lastfen = self.backupfen
                         board.turn = self.color
-                        self.clearscreen()
+                        os.system('clear')
                         self.print_board(board)
                         if len(self.memory) >= batch_size:
                             print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1731,7 +1732,7 @@ try:
                          original_piece_type = board.piece_at(opponent_move.from_square).piece_type if board.piece_at(opponent_move.from_square) else None
                          board.push(opponent_move)
                          reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
-                         self.clearscreen()
+                         os.system('clear')
                          self.print_board(board)
                          if len(self.memory) >= batch_size:
                              print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1752,7 +1753,7 @@ try:
                          
                     elif self.is_promotion(opponent_move):
                         board.set(self.backup_fen)
-                        self.clearscreen()
+                        os.system('clear')
                         self.print_board(board)
                         if len(self.memory) >= batch_size:
                             print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1779,7 +1780,7 @@ try:
                     board.set_fen(self.backupfen)
                     self.lastfen = self.backupfen
                     board.turn = self.color
-                    self.clearscreen()
+                    os.system('clear')
                     self.print_board(board)
                     if len(self.memory) >= batch_size:
                         print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
@@ -1822,4 +1823,3 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
-
