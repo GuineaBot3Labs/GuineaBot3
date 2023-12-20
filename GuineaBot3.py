@@ -991,7 +991,7 @@ try:
 
                     for state, action, reward, next_state, done in tqdm(batch, desc="Processing black batch"):
                         state = torch.tensor(state, dtype=torch.float).to(x)
-                        next_state = torch.tensor(next_state, dtype=torch.float).t(x)
+                        next_state = torch.tensor(next_state, dtype=torch.float).to(x)
                         reward = torch.tensor(reward, dtype=torch.float).to(x)
     
                         if done:
