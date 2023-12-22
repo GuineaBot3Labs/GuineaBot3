@@ -561,7 +561,7 @@ try:
                         self.short_term_memory_white = []
                         # Clear the GPU cache
                         gc.collect()
-                        if self.device.startswith('cuda'):
+                        if 'cuda' in self.device.type:
                             torch.cuda.empty_cache()
                     elif len(self.memory_black) >= self.batch_size:
                         if self.vebrose:
@@ -572,7 +572,7 @@ try:
                         self.short_term_memory_black = []
                         # Clear the GPU cache
                         gc.collect()
-                        if self.device.startswith('cuda'):
+                        if 'cuda' in self.device.type:
                             torch.cuda.empty_cache()
                     else:
                         self.short_term_memory_white = []
@@ -618,7 +618,7 @@ try:
                             self.short_term_memory_white = []
                             # Clear the GPU cache
                             gc.collect()
-                            if self.device.startswith('cuda'):
+                            if 'cuda' in self.device.type:
                                 torch.cuda.empty_cache()
                         elif len(self.memory_black) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
@@ -628,7 +628,7 @@ try:
                             self.short_term_memory_black = []
                             # Clear the GPU cache
                             gc.collect()
-                            if self.device.startswith('cuda'):
+                            if 'cuda' in self.device.type:
                                 torch.cuda.empty_cache()
                         else:
                             self.short_term_memory_white = []
