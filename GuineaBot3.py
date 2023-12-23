@@ -886,7 +886,7 @@ try:
                             board.push(best_move)
                             return best_move
         def replay(self, batch_size, board, selfplay=False, color=None):
-            x = random.choice(list(self.devices))
+            x = self.device
             if self.vebrose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
