@@ -352,6 +352,7 @@ try:
             self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
             self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.target_optimizer.load_state_dict(checkpoint['target_optimizer_state_dict'])
             self.model.eval()
             self.target_model.eval()
  
@@ -743,7 +744,7 @@ try:
             target_f2 = self.target_model(state).detach().clone().to(self.device)
             target_f2[0, action_index] = reward
             loss2 = self.loss_fn(target_f2, self.target_model(state).to(self.device))
-            self.optimizer.zero_grad()
+            self.target_optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
             self.target_optimizer.step()
@@ -1345,7 +1346,7 @@ try:
                                                 'model_state_dict': self.model.state_dict(),
                                                 'target_model_state_dict': self.target_model.state_dict(),
                                                 'optimizer_state_dict': self.optimizer.state_dict(),
-                                                # You can include more states here if needed
+                                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                                                 }, "GuineaBot3_COMPACT.pt")
                                                 self.memory = []
                                                 # Clear the GPU cache
@@ -1399,7 +1400,7 @@ try:
                             'model_state_dict': self.model.state_dict(),
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
-                            # You can include more states here if needed
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_COMPACT.pt")
                             self.memory = []
                             gc.collect()
@@ -1444,7 +1445,7 @@ try:
                             'model_state_dict': self.model.state_dict(),
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
-                            # You can include more states here if needed
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_COMPACT.pt")
                             self.memory = []
                             # Clear the GPU cache
@@ -1492,7 +1493,7 @@ try:
                             'model_state_dict': self.model.state_dict(),
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
-                            # You can include more states here if needed
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_COMPACT.pt")
                             self.memory = []
                             gc.collect()
