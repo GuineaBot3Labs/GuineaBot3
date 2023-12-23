@@ -48,7 +48,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally, you can skip this part as this part is optional, if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a>, of course this is the big bot, so I will make a new account for the compact version soon! WHEEK WHEEK!!!
+finally, you can skip this part as this part is optional, if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my bot <a href="https://lichess.org/@/GuineaBot3COMPACT">here</a>, of course this is the big bot, so I will make a new account for the compact version soon! WHEEK WHEEK!!!
 
 ## USAGE ##
 
