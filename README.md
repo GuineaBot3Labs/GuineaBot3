@@ -9,7 +9,7 @@
   
 # GuineaBot3
 
-A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
+A lichess bot that self learns and improves over time. You can watch GuineaBot3COMPACT's games <a href="https://lichess.org/@/GuineaBot3COMPACT/tv">here</a>
 
 ## UPDATES ##
 ### COMPACT EDITION, WHEEK WHEEK!!! ###
