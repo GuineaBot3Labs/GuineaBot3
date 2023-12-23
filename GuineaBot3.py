@@ -312,6 +312,7 @@ try:
             self.move_rewards = []
             self.short_term_memory = []  # Initialize short_term_memory
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
+            self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
             self.token = 'YOUR-API-TOKEN'
@@ -741,7 +742,7 @@ try:
             self.optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            self.optimizer.step()
+            self.target_optimizer.step()
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
                 try:
