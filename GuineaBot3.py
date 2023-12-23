@@ -304,6 +304,7 @@ try:
             self.move_rewards = []
             self.short_term_memory = []  # Initialize short_term_memory
             self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
+            self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
             self.session = requests.Session()
             self.token = 'YOUR-API-TOKEN'
@@ -745,34 +746,7 @@ try:
             self.optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-
-
-        def model_learn(self, state, opponent_move, reward):
-
-            ### Update the main model ###
-            opponent_move_index = self.move_to_index(board, opponent_move)
-            target_f2 = self.model(state).detach().clone()
-            target_f2 = target_f2.to(self.device)  # Move target_f to device
-    
-            # Update the Q-value for the opponent's move with the negative reward
-            target_f2[0, opponent_move_index] = -reward
-        
-            loss = self.loss_fn(target_f2, self.model(state))
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-            
-            ### Update the target model ###
-            target_f2 = self.target_model(state).detach().clone().to(self.device)
-            target_f2[0, opponent_move_index] = reward
-            loss2 = self.loss_fn(target_f2, self.target_model(state).to(self.device))
-            self.optimizer.zero_grad()
-            loss2.backward()
-            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-
+            self.target_optimizer.step()
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
                 try:
