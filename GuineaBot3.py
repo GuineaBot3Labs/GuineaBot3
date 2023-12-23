@@ -315,6 +315,7 @@ try:
             self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.01)
             self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.01)
             self.loss_fn = nn.MSELoss()
+            self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
             self.token = 'YOUR-API-TOKEN'
             self.name = 'YOUR-USERNAME'
@@ -740,7 +741,7 @@ try:
             target_f2 = self.target_model(state).detach().clone().to(x)
             target_f2 = target_f2.to('cuda:0')
             target_f2[0, action_index] = reward
-            loss2 = self.loss_fn(target_f2, self.target_model(state).to('cuda:0'))
+            loss2 = self.loss_fn2(target_f2, self.target_model(state).to('cuda:0'))
             self.target_optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
