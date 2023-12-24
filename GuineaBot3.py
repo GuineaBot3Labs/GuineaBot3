@@ -885,6 +885,7 @@ try:
                             self.remember(state, move, reward, best_state, done, selfplay, board.turn)
                             board.push(best_move)
                             return best_move
+                            
         def replay(self, batch_size, board, selfplay=False, color=None):
             x = self.device
             if self.vebrose:
