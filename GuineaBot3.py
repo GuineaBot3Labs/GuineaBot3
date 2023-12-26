@@ -560,7 +560,14 @@ try:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.WHITE)
-        
+                        print("Saving/Updating model weights")
+                        # Save the model weights after each episode
+                        torch.save({
+                        'model_state_dict': self.model.state_dict(),
+                        'target_model_state_dict': self.target_model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE.pt")
                         self.memory_white = []
                         self.short_term_memory_white = []
                         # Clear the GPU cache
@@ -570,7 +577,14 @@ try:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.BLACK)
-        
+                        print("Saving/Updating model weights")
+                        # Save the model weights after each episode
+                        torch.save({
+                        'model_state_dict': self.model.state_dict(),
+                        'target_model_state_dict': self.target_model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE.pt")
                         self.memory_black = []
                         self.short_term_memory_black = []
                         # Clear the GPU cache
@@ -598,22 +612,28 @@ try:
 
                         board1.reset()
                         moves = list(game.mainline_moves())
-                        board1.turn = chess.WHITE
 
                         for move in tqdm(moves, desc=f"Processing moves of game: {game_count}"):
                             state = self.board_to_state(board1)
-                            board1.push(move)
                             self.color = board1.turn
                             original_piece_type = board1.piece_at(move.from_square).piece_type if board1.piece_at(move.from_square) else None
+                            board1.push(move)
                             reward = self.get_reward(board1, board1.turn, move, original_piece_type, True)  # Adapt reward function if needed
                             done = board1.is_game_over()
                             next_state = self.board_to_state(board1)
                             self.update_model(state, move, reward)
-                            self.remember(state, move, reward, next_state, done, True, board.turn)
+                            self.remember(state, move, reward, next_state, done, True, board1.turn)
                         if len(self.memory_white) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
                             self.replay(self.batch_size, board1, True, chess.WHITE)
-
+                            print("Saving/Updating model weights")
+                            # Save the model weights after each episode
+                            torch.save({
+                            'model_state_dict': self.model.state_dict(),
+                            'target_model_state_dict': self.target_model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory_white = []
                             self.short_term_memory_white = []
                             # Clear the GPU cache
@@ -622,7 +642,14 @@ try:
                         if len(self.memory_black) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
                             self.replay(self.batch_size, board1, True, chess.BLACK)
-
+                            print("Saving/Updating model weights")
+                            # Save the model weights after each episode
+                            torch.save({
+                            'model_state_dict': self.model.state_dict(),
+                            'target_model_state_dict': self.target_model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory_black = []
                             self.short_term_memory_black = []
                             # Clear the GPU cache
@@ -679,6 +706,7 @@ try:
             self.color = int(piece.color)
             index = from_square * 12 + moved_piece - 1 + self.color * 6
             return index
+
 
         def print_board(self, board):
             symbols = {
@@ -744,7 +772,7 @@ try:
             self.target_optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
-            self.target_optimizer.step()
+            self.optimizer.step()
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
                 try:
@@ -1557,6 +1585,7 @@ try:
                 return True
             return False
 
+
         def get_reward(self, board, color, move, original_piece_type, selfplay=False, move_num=0):
             reward = 0
 
@@ -1800,3 +1829,4 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
+
