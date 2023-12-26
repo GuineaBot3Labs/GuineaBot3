@@ -353,7 +353,6 @@ try:
             self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
             self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.target_optimizer.load_state_dict(checkpoint['target_optimizer_state_dict'])
             self.model.eval()
             self.target_model.eval()
  
@@ -552,31 +551,43 @@ try:
                         # print(f"Best move determined by GuineaBot3: {move}")
                         board2.push(move)
                         self.color = board2.turn
-                        self.clearscreen()
+                        os.system('clear')
                         self.print_board(board2)
                                 
                     if len(self.memory_white) >= self.batch_size:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.WHITE)
-        
+                        print("Saving/Updating model weights")
+                        # Save the model weights after each episode
+                        torch.save({
+                        'model_state_dict': self.model.state_dict(),
+                        'target_model_state_dict': self.target_model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE.pt")
                         self.memory_white = []
                         self.short_term_memory_white = []
                         # Clear the GPU cache
                         gc.collect()
-                        if 'cuda' in self.device.type:
-                            torch.cuda.empty_cache()
-                    elif len(self.memory_black) >= self.batch_size:
+                        torch.cuda.empty_cache()
+                    if len(self.memory_black) >= self.batch_size:
                         if self.vebrose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.BLACK)
-        
+                        print("Saving/Updating model weights")
+                        # Save the model weights after each episode
+                        torch.save({
+                        'model_state_dict': self.model.state_dict(),
+                        'target_model_state_dict': self.target_model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE.pt")
                         self.memory_black = []
                         self.short_term_memory_black = []
                         # Clear the GPU cache
                         gc.collect()
-                        if 'cuda' in self.device.type:
-                            torch.cuda.empty_cache()
+                        torch.cuda.empty_cache()
                     else:
                         self.short_term_memory_white = []
                         self.short_term_memory_black = []
@@ -585,14 +596,9 @@ try:
             try:
                 board1 = chess.Board()
                 game_count = 0
-                while True:
-                    try:
-                        num_games = input("How many games do you want GuineaBot3 to selfplay?: ")
-                        num_games = int(num_games)
-                        break
-                    except ValueError:
-                        print("Invalid input. Please enter an number.")
-                self.simulate_self_play(num_games)
+                numgames = input("How many games do you want GuineaBot3 to selfplay?: ")
+                numgames = int(numgames)
+                self.simulate_self_play(numgames)
                 with open(file_path, 'r') as pgn_file:
                     while True:
                         game = chess.pgn.read_game(pgn_file)
@@ -604,41 +610,55 @@ try:
 
                         board1.reset()
                         moves = list(game.mainline_moves())
+
                         for move in tqdm(moves, desc=f"Processing moves of game: {game_count}"):
                             state = self.board_to_state(board1)
-                            board1.push(move)
+                            self.color = board1.turn
                             original_piece_type = board1.piece_at(move.from_square).piece_type if board1.piece_at(move.from_square) else None
+                            board1.push(move)
                             reward = self.get_reward(board1, board1.turn, move, original_piece_type, True)  # Adapt reward function if needed
                             done = board1.is_game_over()
                             next_state = self.board_to_state(board1)
                             self.update_model(state, move, reward)
-                            self.remember(state, move, reward, next_state, done, True, board.turn)
+                            self.remember(state, move, reward, next_state, done, True, board1.turn)
                         if len(self.memory_white) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
                             self.replay(self.batch_size, board1, True, chess.WHITE)
-
+                            print("Saving/Updating model weights")
+                            # Save the model weights after each episode
+                            torch.save({
+                            'model_state_dict': self.model.state_dict(),
+                            'target_model_state_dict': self.target_model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory_white = []
                             self.short_term_memory_white = []
                             # Clear the GPU cache
                             gc.collect()
-                            if 'cuda' in self.device.type:
-                                torch.cuda.empty_cache()
-                        elif len(self.memory_black) >= self.batch_size:
+                            torch.cuda.empty_cache()
+                        if len(self.memory_black) >= self.batch_size:
                             print("Now commencing replay (may take a while)")
                             self.replay(self.batch_size, board1, True, chess.BLACK)
-
+                            print("Saving/Updating model weights")
+                            # Save the model weights after each episode
+                            torch.save({
+                            'model_state_dict': self.model.state_dict(),
+                            'target_model_state_dict': self.target_model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE.pt")
                             self.memory_black = []
                             self.short_term_memory_black = []
                             # Clear the GPU cache
                             gc.collect()
-                            if 'cuda' in self.device.type:
-                                torch.cuda.empty_cache()
+                            torch.cuda.empty_cache()
                         else:
                             self.short_term_memory_white = []
                             self.short_term_memory_black = []
 
                 print("\nAll games processed. Total games:", game_count)
-                self.simulate_self_play(100)
+                self.simulate_self_play(30)
             except KeyboardInterrupt:
                 pass
 
@@ -885,7 +905,8 @@ try:
                             self.remember(state, move, reward, best_state, done, selfplay, board.turn)
                             board.push(best_move)
                             return best_move
-                            
+
+
         def replay(self, batch_size, board, selfplay=False, color=None):
             x = self.device
             if self.vebrose:
@@ -1035,6 +1056,7 @@ try:
                 self.epsilon *= self.epsilon_decay
             if self.vebrose:
                 print("DONE!")
+
 
         def train(self, episodes, batch_size, board):
             try:
@@ -1800,3 +1822,4 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
+
