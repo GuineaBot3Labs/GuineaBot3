@@ -336,6 +336,7 @@ try:
             self.current_move = False
 
 
+
             print(f"Using device: {device}!")
             # self.model = torch.nn.parallel.DistributedDataParallel(self.target_model)
             # self.target_model = torch.nn.parallel.DistributedDataParallel(self.target_model)
@@ -594,6 +595,7 @@ try:
                 
         def replay_pgn_and_learn(self, file_path):
             try:
+                x = self.device
                 board1 = chess.Board()
                 game_count = 0
                 numgames = input("How many games do you want GuineaBot3 to selfplay?: ")
@@ -613,12 +615,14 @@ try:
 
                         for move in tqdm(moves, desc=f"Processing moves of game: {game_count}"):
                             state = self.board_to_state(board1)
+                            state = state.to(x)
                             self.color = board1.turn
                             original_piece_type = board1.piece_at(move.from_square).piece_type if board1.piece_at(move.from_square) else None
                             board1.push(move)
                             reward = self.get_reward(board1, board1.turn, move, original_piece_type, True)  # Adapt reward function if needed
                             done = board1.is_game_over()
                             next_state = self.board_to_state(board1)
+                            next_state = next_state.to(x)
                             self.update_model(state, move, reward)
                             self.remember(state, move, reward, next_state, done, True, board1.turn)
                         if len(self.memory_white) >= self.batch_size:
@@ -751,9 +755,9 @@ try:
                     self.memory.append((state, action, reward, next_state, done))
                 
         def update_model(self, state, action, reward):
-
+            x = self.device
             action_index = self.move_to_index(board, action)
-            target_f = self.model(state).detach().clone()
+            target_f = self.model(state).detach().clone().to(x)
             target_f = target_f.to(self.device)  # Move target_f to device
             target_f[0, action_index] = reward
 
@@ -819,7 +823,7 @@ try:
                                             plt.draw()
                                             plt.pause(0.001)
                                         board.pop()
-                                        self.update_model(state, move, reward)
+                                        self.update_model(next_state, move, reward)
                                         self.remember(state, move, reward, next_state, done, selfplay, board.turn)
                                         if not selfplay:
                                             board.push(best_move)
@@ -885,7 +889,7 @@ try:
                                 plt.ylim(min(self.move_rewards), max(self.move_rewards))
                                 plt.draw()
                                 plt.pause(0.001)
-                            self.update_model(state, best_move, reward)
+                            self.update_model(best_state, best_move, reward)
                             self.remember(state, move, reward, best_state, done, selfplay, board.turn)
                             if not selfplay:
                                 board.push(best_move)
