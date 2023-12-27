@@ -823,7 +823,7 @@ try:
                                             plt.draw()
                                             plt.pause(0.001)
                                         board.pop()
-                                        self.update_model(next_state, move, reward)
+                                        self.update_model(state, move, reward)
                                         self.remember(state, move, reward, next_state, done, selfplay, board.turn)
                                         if not selfplay:
                                             board.push(best_move)
@@ -889,7 +889,7 @@ try:
                                 plt.ylim(min(self.move_rewards), max(self.move_rewards))
                                 plt.draw()
                                 plt.pause(0.001)
-                            self.update_model(best_state, best_move, reward)
+                            self.update_model(state, best_move, reward)
                             self.remember(state, move, reward, best_state, done, selfplay, board.turn)
                             if not selfplay:
                                 board.push(best_move)
