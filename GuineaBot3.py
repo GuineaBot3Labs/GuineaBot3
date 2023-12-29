@@ -37,43 +37,14 @@ try:
 
     class BreakLoopException(Exception):
         pass
-        
-    class Attention(nn.Module):
-        def __init__(self, in_channels):
-            super(Attention, self).__init__()
-            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-
-
-        def forward(self, x):
-            # x shape: [batch, channels, height, width]
-        
-            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-
-            # Apply attention
-            x, _ = self.attention1(x, x, x)
-            x, _ = self.attention2(x, x, x)
-
-
-
-            # Combine attention outputs (you can also concatenate or use other methods)
-            attn_output = x
-
-            # Reshape back
-            attn_output = attn_output.view(-1, 96, 1, 1)
-
-
-            
-            return attn_output
-
-
 
     class ChessNet(nn.Module):
         def __init__(self, num_convs=3, num_fcs=7):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            self.attention = Attention(96)  # Assuming the input dimension is 4096
+            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -86,13 +57,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
-            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
+            # Pre-calculate fc_input_size using a dummy input tensor
+            dummy_input = torch.zeros(1, 14, 8, 8)
+            x = dummy_input
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -100,71 +71,68 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
-
-        
-
+            self.output_layer = nn.Linear(out_features, num_output_actions)
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            # Calculate the input size for the first fully connected layer
-            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
+    
+            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
+    
+            # Apply attention
+            x, _ = self.attention1(x, x, x)
+            x, _ = self.attention2(x, x, x)
 
-            # Update the first fully connected layer's input size
-            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-            
-
-            x = self.attention(x)
-            
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
+
             # Output layer
             x = self.output_layer(x)
 
-
-            
             return x
             
         def mutate(self, device):
-        
             self.to(device)
-            min_fcs = 13  # Minimum number of fully connected layers
-            max_fcs = 26  # Maximum number of fully connected layers
+            min_fcs = 4  # Minimum number of fully connected layers
+            max_fcs = 14  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
             noise = 0.5
-    
+
             # Decide to add or remove a fully connected layer
             if random.random() < 0.1:
                 if len(self.fcs) < max_fcs and random.choice([True, False]):
+                    # Assuming all fully connected layers have 4096 units
+                    fc_input_size = 4096
                     # Add a new fully connected layer with random weights
-                    self.fcs.append(nn.Linear(4096, 4096))
+                    self.fcs.append(nn.Linear(fc_input_size, 4096))
                 elif len(self.fcs) > min_fcs:
                     # Remove a fully connected layer
                     del self.fcs[-1]
-    
+
             # Decide to add or remove a convolution layer
             if random.random() < 0.1:
                 if len(self.convs) < max_convs and random.choice([True, False]):
+                    # Get the number of output channels from the last Conv2D layer
+                    last_out_channels = self.convs[-1].out_channels
                     # Add a new convolution layer with random weights
-                    self.convs.append(nn.Conv2d(14, 24, kernel_size=3, padding=1))
+                    self.convs.append(nn.Conv2d(last_out_channels, last_out_channels * 2, kernel_size=3, padding=1))
                 elif len(self.convs) > min_convs:
                     # Remove a convolution layer
                     del self.convs[-1]
-    
+
             # Mutate existing weights
             with torch.no_grad():
                 for param in self.parameters():
@@ -172,15 +140,14 @@ try:
                         param += torch.randn_like(param) * noise
 
             self.to(device)
-            
-
 
     class TargetChessNet(nn.Module):
         def __init__(self, num_convs=3, num_fcs=7):
             super(TargetChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            self.attention = Attention(96)  # Assuming the input dimension is 4096
+            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -193,12 +160,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
-            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
+            # Pre-calculate fc_input_size using a dummy input tensor
+            dummy_input = torch.zeros(1, 14, 8, 8)
+            x = dummy_input
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -206,30 +174,26 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
-
-        
-
+            self.output_layer = nn.Linear(out_features, num_output_actions)
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
-            # Calculate the input size for the first fully connected layer
-            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
+    
+            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
+    
+            # Apply attention
+            x, _ = self.attention1(x, x, x)
+            x, _ = self.attention2(x, x, x)
 
-            # Update the first fully connected layer's input size
-            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-
-            x = self.attention(x)
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
@@ -244,8 +208,8 @@ try:
 
         def mutate(self, device):
             self.to(device)
-            min_fcs = 10  # Minimum number of fully connected layers
-            max_fcs = 26  # Maximum number of fully connected layers
+            min_fcs = 4  # Minimum number of fully connected layers
+            max_fcs = 14  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
             noise = 0.5
@@ -281,7 +245,7 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, device='cpu'):
+        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, device='cuda:0'):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
@@ -308,8 +272,8 @@ try:
             self.loss_fn = nn.MSELoss()
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-API-TOKEN'
-            self.name = 'YOUR-USERNAME'
+            self.token = 'YOUR-API-TOKEN-HERE'
+            self.name = 'YOUR-USERNAME-HERE'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -336,7 +300,6 @@ try:
             self.current_move = False
 
 
-
             print(f"Using device: {device}!")
             # self.model = torch.nn.parallel.DistributedDataParallel(self.target_model)
             # self.target_model = torch.nn.parallel.DistributedDataParallel(self.target_model)
@@ -354,6 +317,7 @@ try:
             self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
             self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.target_optimizer.load_state_dict(checkpoint['target_optimizer_state_dict'])
             self.model.eval()
             self.target_model.eval()
  
@@ -566,7 +530,7 @@ try:
                         'target_model_state_dict': self.target_model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                        }, "GuineaBot3_COMPACT.pt")
                         self.memory_white = []
                         self.short_term_memory_white = []
                         # Clear the GPU cache
@@ -583,7 +547,7 @@ try:
                         'target_model_state_dict': self.target_model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                        }, "GuineaBot3_COMPACT.pt")
                         self.memory_black = []
                         self.short_term_memory_black = []
                         # Clear the GPU cache
@@ -622,7 +586,6 @@ try:
                             reward = self.get_reward(board1, board1.turn, move, original_piece_type, True)  # Adapt reward function if needed
                             done = board1.is_game_over()
                             next_state = self.board_to_state(board1)
-                            next_state = next_state.to(x)
                             self.update_model(state, move, reward)
                             self.remember(state, move, reward, next_state, done, True, board1.turn)
                         if len(self.memory_white) >= self.batch_size:
@@ -635,7 +598,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory_white = []
                             self.short_term_memory_white = []
                             # Clear the GPU cache
@@ -651,7 +614,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory_black = []
                             self.short_term_memory_black = []
                             # Clear the GPU cache
@@ -1194,15 +1157,15 @@ try:
                                                     pass
                 
                                                 elif self.is_draw == True:
-
+                                                     x = self.device
                                                      done = True
-                                                     state = self.board_to_state(board)
+                                                     state = self.board_to_state(board).to(x)
                                                      reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
                                                      os.system('clear')
                                                      self.print_board(board)
                                                      print("Draw!")
                                                      self.draws += 1
-                                                     next_state = self.board_to_state(board)
+                                                     next_state = self.board_to_state(board).to(x)
                                                      self.update_model(state, opponent_move, reward)
                                                      self.remember(state, opponent_move, reward, next_state, done)
 
@@ -1240,9 +1203,9 @@ try:
                                                     board.turn = opponent_color
 
                                                     if opponent_move in board.legal_moves:
-
+                                                         x = self.device
                                                          done = board.is_game_over()
-                                                         state = self.board_to_state(board)
+                                                         state = self.board_to_state(board).to(x)
                                                          original_piece_type = board.piece_at(opponent_move.from_square).piece_type if board.piece_at(opponent_move.from_square) else None
                                                          board.push(opponent_move)
                                                          reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
@@ -1261,7 +1224,7 @@ try:
                                                              print(f"DEBUG: Epsilon: {self.epsilon}") 
                                                          
                                                          reward = -reward
-                                                         next_state = self.board_to_state(board)
+                                                         next_state = self.board_to_state(board).to(x)
                                                          self.update_model(state, opponent_move, reward)
                                                          self.remember(state, opponent_move, reward, next_state, done)
                                                          board.turn = self.color
