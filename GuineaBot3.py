@@ -37,46 +37,13 @@ try:
     class BreakLoopException(Exception):
         pass
         
-    class Attention(nn.Module):
-        def __init__(self, in_channels):
-            super(Attention, self).__init__()
-            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-
-        def forward(self, x):
-            # x shape: [batch, channels, height, width]
-        
-            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-
-            # Apply attention
-            x, _ = self.attention1(x, x, x)
-            x, _ = self.attention2(x, x, x)
-            x, _ = self.attention3(x, x, x)
-            x, _ = self.attention4(x, x, x)
-            x, _ = self.attention5(x, x, x)
-
-
-            # Combine attention outputs (you can also concatenate or use other methods)
-            attn_output = x
-
-            # Reshape back
-            attn_output = attn_output.view(-1, 96, 1, 1)
-
-
-            
-            return attn_output
-
-
-
     class ChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
+        def __init__(self, num_convs=6, num_fcs=14):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            self.attention = Attention(96)  # Assuming the input dimension is 4096
+            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -89,13 +56,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
-            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
+            # Pre-calculate fc_input_size using a dummy input tensor
+            dummy_input = torch.zeros(1, 14, 8, 8)
+            x = dummy_input
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -103,42 +70,36 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
-
-        
-
+            self.output_layer = nn.Linear(out_features, num_output_actions)
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            # Calculate the input size for the first fully connected layer
-            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
+    
+            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
+    
+            # Apply attention
+            x, _ = self.attention1(x, x, x)
+            x, _ = self.attention2(x, x, x)
 
-            # Update the first fully connected layer's input size
-            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-            
-
-            x = self.attention(x)
-            
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
+
             # Output layer
             x = self.output_layer(x)
 
-
-            
             return x
             
         def mutate(self):
@@ -183,7 +144,8 @@ try:
             super(TargetChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            self.attention = Attention(96)  # Assuming the input dimension is 4096
+            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -196,12 +158,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
-            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
+            # Pre-calculate fc_input_size using a dummy input tensor
+            dummy_input = torch.zeros(1, 14, 8, 8)
+            x = dummy_input
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -209,30 +172,26 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
-
-        
-
+            self.output_layer = nn.Linear(out_features, num_output_actions)
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
-            # Calculate the input size for the first fully connected layer
-            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
+    
+            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
+    
+            # Apply attention
+            x, _ = self.attention1(x, x, x)
+            x, _ = self.attention2(x, x, x)
 
-            # Update the first fully connected layer's input size
-            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-
-            x = self.attention(x)
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
