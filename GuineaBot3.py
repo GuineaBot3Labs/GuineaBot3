@@ -789,24 +789,7 @@ try:
                                             
                                         return best_move
                 except KeyboardInterrupt:
-                        board.turn == self.color
-                        manual_move = input("Enter your move in UCI format: ")
-                        best_move = chess.Move.from_uci(manual_move)
-                        self.model.train()
-                        state = self.board_to_state(board)
-                        done = board.is_game_over()
-                        original_piece_type = board.piece_at(best_move.from_square).piece_type if board.piece_at(best_move.from_square) else None
-                        self.remember(state, best_move, reward, next_state, done, selfplay, board.turn)
-                        if not selfplay:
-                            board.push(best_move)
-                        reward = self.get_reward(board, self.color, best_move, original_piece_type, selfplay)
-                        next_state = self.board_to_state(board)
-                        next_state.to('cuda:0')
-                        self.update_model(state, best_move, reward)
-
-                        if self.vebrose:
-                            print(f"DEBUG: Rewards: {reward}")
-                        return best_move
+                        print("Keyboard interrupt detected, exiting...")
 
         def choose_actionrandom(self, state, legal_moves, board, selfplay=False):
                 while legal_moves:
