@@ -309,13 +309,28 @@ try:
             # self.target_model.to(self.device)
             time.sleep(1)
 
+        def load_attention_weights(self, model_name, model_name_state_dict_pointer, checkpoint):
+    
+            # Extract the state dictionary for the attention layers
+            attention_weights = {k: v for k, v in checkpoint[f'{model_name_state_dict_pointer}_state_dict'].items() if 'attention' in k}
+            # Extract the rest of the weights
+            rest_weights = {k: v for k, v in checkpoint[f'{model_name_state_dict_pointer}_state_dict'].items() if 'attention' not in k}
+
+
+            # Load the weights into the respective parts of the model
+            model_name.attention1.load_state_dict(attention_weights, strict=False)
+            model_name.attention2.load_state_dict(attention_weights, strict=False)
+            model_name.load_state_dict(rest_weights, strict=False)
+
         def load_model_weights_both(self, model_path):
             model_weights_before = {name: param.clone() for name, param in self.model.named_parameters()}
             checkpoint = torch.load(model_path)
             self.model.train()
             self.target_model.train()
-            self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-            self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
+            # self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+            # self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
+            self.load_attention_weights(self.model, "model", checkpoint)
+            self.load_attention_weights(self.target_model, "target_model", checkpoint)
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.target_optimizer.load_state_dict(checkpoint['target_optimizer_state_dict'])
             self.model.eval()
@@ -1358,12 +1373,13 @@ try:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
-                        state = self.board_to_state(board)
+                        x = self.device
+                        state = self.board_to_state(board).to(x)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
                         self.draws += 1
-                        next_state = self.board_to_state(board)
+                        next_state = self.board_to_state(board).to(x)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
                         print(f"GuineaBOT Won!")
@@ -1403,12 +1419,13 @@ try:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
-                        state = self.board_to_state(board)
+                        x = self.device
+                        state = self.board_to_state(board).to(x)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
                         self.draws += 1
-                        next_state = self.board_to_state(board)
+                        next_state = self.board_to_state(board).to(x)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
                         print(f"GuineaBOT Lost!")
@@ -1450,12 +1467,13 @@ try:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
-                        state = self.board_to_state(board)
+                        x = self.device
+                        state = self.board_to_state(board).to(x)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
                         self.draws += 1
-                        next_state = self.board_to_state(board)
+                        next_state = self.board_to_state(board).to(x)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
                         print("Draw!")
@@ -1789,4 +1807,3 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
-
