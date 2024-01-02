@@ -36,14 +36,20 @@ try:
 
     class BreakLoopException(Exception):
         pass
-        
+
+
+
     class ChessNet(nn.Module):
-        def __init__(self, num_convs=6, num_fcs=14):
+        def __init__(self, num_convs=3, num_fcs=14):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            in_channels = 96
+            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -56,13 +62,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Pre-calculate fc_input_size using a dummy input tensor
-            dummy_input = torch.zeros(1, 14, 8, 8)
-            x = dummy_input
+            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
+            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            fc_input_size = x.view(x.size(0), -1).size(1)
+                
+            fc_input_size = x.numel()  # Total number of elements in 'x'
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -70,36 +76,50 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(fc_input_size, out_features))
+                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)
+            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
+
+        
+
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-    
+            # Calculate the input size for the first fully connected layer
+            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
+
+            # Update the first fully connected layer's input size
+            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
+            
+
             x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-    
+
             # Apply attention
             x, _ = self.attention1(x, x, x)
             x, _ = self.attention2(x, x, x)
-
+            x, _ = self.attention3(x, x, x)
+            x, _ = self.attention4(x, x, x)
+            x, _ = self.attention5(x, x, x)
+            
+            x = x.view(-1, 96, 1, 1)
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
-
             # Output layer
             x = self.output_layer(x)
 
+
+            
             return x
             
         def mutate(self):
@@ -144,8 +164,12 @@ try:
             super(TargetChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            in_channels = 96
+            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -158,13 +182,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Pre-calculate fc_input_size using a dummy input tensor
-            dummy_input = torch.zeros(1, 14, 8, 8)
-            x = dummy_input
+            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
+            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            fc_input_size = x.view(x.size(0), -1).size(1)
+                
+            fc_input_size = x.numel()  # Total number of elements in 'x'
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -172,36 +196,50 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(fc_input_size, out_features))
+                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)
+            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
+
+        
+
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-    
+            # Calculate the input size for the first fully connected layer
+            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
+
+            # Update the first fully connected layer's input size
+            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
+            
+
             x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-    
+
             # Apply attention
             x, _ = self.attention1(x, x, x)
             x, _ = self.attention2(x, x, x)
-
+            x, _ = self.attention3(x, x, x)
+            x, _ = self.attention4(x, x, x)
+            x, _ = self.attention5(x, x, x)
+            
+            x = x.view(-1, 96, 1, 1)
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
-
             # Output layer
             x = self.output_layer(x)
 
+
+            
             return x
 
         def mutate(self):
@@ -255,15 +293,13 @@ try:
             self.model = ChessNet()
             self.target_model = TargetChessNet()
 
-            # Use DataParallel to wrap the models
+            # Do DataParallel for simplicity for now (will implement better parallelism in the future)
             self.model = nn.DataParallel(self.model, device_ids=self.devices)
             self.target_model = nn.DataParallel(self.target_model, device_ids=self.devices)
             # Move the models to device
-            self.model = self.model.to(self.devices[0])  # DataParallel requires the model to be on a device    
-            self.target_model = self.target_model.to(self.devices[0])  # Same for the target model
+            self.model = self.model.to(self.devices[0])   
+            self.target_model = self.target_model.to(self.devices[0])
  
-            # self.model = nn.parallel.DistributedDataParallel(self.model)
-            # self.target_model = nn.parallel.DistributedDataParallel(self.target_model)
             self.epsilon = epsilon
             self.epsilon_min = epsilon_min
             self.epsilon_decay = epsilon_decay
@@ -279,6 +315,29 @@ try:
             self.name = 'YOUR-USERNAME'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
+
+            self.game_id = None
+            self.game_over = False
+            self.game_over_count = 0
+            self.opponent_username = None
+            self.color = None
+            self.error = None
+            self.is_draw = False
+            self.is_stalemate = False
+            self.lastfen = None
+            self.backupfen = None
+            self.plot = False
+            self.opponent_move = None
+            self.repeat_count = 0
+            self.Last_Move = None
+            self.my_color = None
+            self.best_reward = 0
+            self.batch_size = 270
+            self.states = []
+            self.next_states = []
+            self.actions = []
+            self.current_move = False
+
 
             self.game_id = None
             self.game_over = False
@@ -1771,4 +1830,4 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
-
+        
