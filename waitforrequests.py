@@ -4,7 +4,7 @@ import traceback
 import time
 import random
 
-TOKEN = 'YOUR-API-KEY'
+TOKEN = 'YOUR-USERNAME'
 
 tokensession = berserk.TokenSession(TOKEN)
 client = berserk.Client(session=tokensession)
@@ -65,8 +65,8 @@ def handle_challenge(challenge):
             pass
         return
 
-    if time_control['type'] == 'clock' and time_control['limit'] < 18 * 60:
-        print(f"Declined challenge from {username} due to time control below 107 minutes")
+    if time_control['type'] == 'clock' and time_control['limit'] < 6 * 60:
+        print(f"Declined challenge from {username} due to time control below 6 minutes")
         try:
             client.challenges.decline(challenge_id, reason=berserk.Reason.TIMECONTROL)
         except Exception as e:
