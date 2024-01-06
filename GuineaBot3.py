@@ -7,6 +7,7 @@ from tqdm import tqdm
 from art import print_acsii_art
 import chess.engine
 import copy
+import platform
 from timeout_decorator import timeout
 from collections import OrderedDict
 import torch
@@ -37,19 +38,13 @@ try:
     class BreakLoopException(Exception):
         pass
 
-
-
     class ChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
+        def __init__(self, num_convs=3, num_fcs=7):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
-            in_channels = 96
-            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -62,13 +57,13 @@ try:
                 in_channels = out_channels
                 out_channels *= 2
 
-            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
-            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
+            # Pre-calculate fc_input_size using a dummy input tensor
+            dummy_input = torch.zeros(1, 14, 8, 8)
+            x = dummy_input
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -76,176 +71,42 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
 
             # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
-
-        
-
+            self.output_layer = nn.Linear(out_features, num_output_actions)
 
         def forward(self, x):
             # Pass input through each convolutional layer
             for conv, bn in zip(self.convs, self.conv_ins):
                 x = F.relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-            # Calculate the input size for the first fully connected layer
-            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
-
-            # Update the first fully connected layer's input size
-            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-            
-
+    
             x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-
+    
             # Apply attention
             x, _ = self.attention1(x, x, x)
             x, _ = self.attention2(x, x, x)
-            x, _ = self.attention3(x, x, x)
-            x, _ = self.attention4(x, x, x)
-            x, _ = self.attention5(x, x, x)
-            
-            x = x.view(-1, 96, 1, 1)
+
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
             for fc, bn in zip(self.fcs, self.fc_lns):
                 x = F.relu(bn(fc(x)))
+
             # Output layer
             x = self.output_layer(x)
 
-
-            
             return x
             
-        def mutate(self):
-        
-            self.to('cuda:0')
-            min_fcs = 13  # Minimum number of fully connected layers
-            max_fcs = 26  # Maximum number of fully connected layers
-            min_convs = 3  # Minimum number of convolutional layers
-            max_convs = 6  # Maximum number of convolutional layers
-            noise = 0.5
-    
-            # Decide to add or remove a fully connected layer
-            if random.random() < 0.1:
-                if len(self.fcs) < max_fcs and random.choice([True, False]):
-                    # Add a new fully connected layer with random weights
-                    self.fcs.append(nn.Linear(4096, 4096))
-                elif len(self.fcs) > min_fcs:
-                    # Remove a fully connected layer
-                    del self.fcs[-1]
-    
-            # Decide to add or remove a convolution layer
-            if random.random() < 0.1:
-                if len(self.convs) < max_convs and random.choice([True, False]):
-                    # Add a new convolution layer with random weights
-                    self.convs.append(nn.Conv2d(14, 24, kernel_size=3, padding=1))
-                elif len(self.convs) > min_convs:
-                    # Remove a convolution layer
-                    del self.convs[-1]
-    
-            # Mutate existing weights
-            with torch.no_grad():
-                for param in self.parameters():
-                    if random.random() < 0.1:
-                        param += torch.randn_like(param) * noise
-
-            self.to('cuda:0')
-            
-
-
-    class TargetChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
-            super(TargetChessNet, self).__init__()
-
-            num_output_actions = 4672  # Rough estimation of unique moves in chess
-            in_channels = 96
-            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-
-            # Convolutional layers and their corresponding Batch Normalization layers
-            self.convs = nn.ModuleList()
-            self.conv_ins = nn.ModuleList()
-            in_channels = 14
-            out_channels = 24
-            for _ in range(num_convs):
-                self.convs.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
-                self.conv_ins.append(nn.InstanceNorm2d(out_channels))
-                in_channels = out_channels
-                out_channels *= 2
-
-            # Compute the output size of the conv layers by doing a forward pass with a dummy tensor
-            x = torch.zeros(1, 14, 8, 8)  # Dummy input (batch_size=1, channels=12, height=8, width=8)
-            for conv in self.convs:
-                x = F.relu(conv(x))
-                x = F.max_pool2d(x, kernel_size=2, stride=2)
-                
-            fc_input_size = x.numel()  # Total number of elements in 'x'
-
-            # Fully connected layers and their corresponding Batch Normalization layers
-            self.fcs = nn.ModuleList()
-            self.fc_lns = nn.ModuleList()
-            out_features = 4096
-            for i in range(num_fcs):
-                if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
-                else:
-                    self.fcs.append(nn.Linear(out_features, out_features))
-                self.fc_lns.append(nn.LayerNorm(out_features))
-
-            # Output layer
-            self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
-
-        
-
-
-        def forward(self, x):
-            # Pass input through each convolutional layer
-            for conv, bn in zip(self.convs, self.conv_ins):
-                x = F.relu(bn(conv(x)))
-                x = F.max_pool2d(x, kernel_size=2, stride=2)
-            # Calculate the input size for the first fully connected layer
-            fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
-
-            # Update the first fully connected layer's input size
-            self.fcs[0] = nn.Linear(fc_input_size, 4096).to(x.device)
-            
-
-            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
-
-            # Apply attention
-            x, _ = self.attention1(x, x, x)
-            x, _ = self.attention2(x, x, x)
-            x, _ = self.attention3(x, x, x)
-            x, _ = self.attention4(x, x, x)
-            x, _ = self.attention5(x, x, x)
-            
-            x = x.view(-1, 96, 1, 1)
-            # Flatten output from convolutional layers
-            x = x.view(x.size(0), -1)
-
-            # Pass flattened output through fully connected layers
-            for fc, bn in zip(self.fcs, self.fc_lns):
-                x = F.relu(bn(fc(x)))
-            # Output layer
-            x = self.output_layer(x)
-
-
-            
-            return x
-
-        def mutate(self):
-            self.to('cuda:0')
-            min_fcs = 10  # Minimum number of fully connected layers
-            max_fcs = 26  # Maximum number of fully connected layers
+        def mutate(self, device):
+            self.to(device)
+            min_fcs = 4  # Minimum number of fully connected layers
+            max_fcs = 14  # Maximum number of fully connected layers
             min_convs = 3  # Minimum number of convolutional layers
             max_convs = 6  # Maximum number of convolutional layers
             noise = 0.5
@@ -278,28 +139,128 @@ try:
                     if random.random() < 0.1:
                         param += torch.randn_like(param) * noise
 
-            self.to('cuda:0')
+            self.to(device)
+
+    class TargetChessNet(nn.Module):
+        def __init__(self, num_convs=3, num_fcs=7):
+            super(TargetChessNet, self).__init__()
+
+            num_output_actions = 4672  # Rough estimation of unique moves in chess
+            self.attention1 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+            self.attention2 = nn.MultiheadAttention(embed_dim=96, num_heads=12)
+
+            # Convolutional layers and their corresponding Batch Normalization layers
+            self.convs = nn.ModuleList()
+            self.conv_ins = nn.ModuleList()
+            in_channels = 14
+            out_channels = 24
+            for _ in range(num_convs):
+                self.convs.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
+                self.conv_ins.append(nn.InstanceNorm2d(out_channels))
+                in_channels = out_channels
+                out_channels *= 2
+
+            # Pre-calculate fc_input_size using a dummy input tensor
+            dummy_input = torch.zeros(1, 14, 8, 8)
+            x = dummy_input
+            for conv in self.convs:
+                x = F.relu(conv(x))
+                x = F.max_pool2d(x, kernel_size=2, stride=2)
+            fc_input_size = x.view(x.size(0), -1).size(1)
+
+            # Fully connected layers and their corresponding Batch Normalization layers
+            self.fcs = nn.ModuleList()
+            self.fc_lns = nn.ModuleList()
+            out_features = 4096
+            for i in range(num_fcs):
+                if i == 0:
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
+                else:
+                    self.fcs.append(nn.Linear(out_features, out_features))
+                self.fc_lns.append(nn.LayerNorm(out_features))
+
+            # Output layer
+            self.output_layer = nn.Linear(out_features, num_output_actions)
+
+        def forward(self, x):
+            # Pass input through each convolutional layer
+            for conv, bn in zip(self.convs, self.conv_ins):
+                x = F.relu(bn(conv(x)))
+                x = F.max_pool2d(x, kernel_size=2, stride=2)
+    
+            x = x.view(x.size(0), x.size(1), -1).permute(2, 0, 1)
+    
+            # Apply attention
+            x, _ = self.attention1(x, x, x)
+            x, _ = self.attention2(x, x, x)
+
+            # Flatten output from convolutional layers
+            x = x.view(x.size(0), -1)
+
+            # Pass flattened output through fully connected layers
+            for fc, bn in zip(self.fcs, self.fc_lns):
+                x = F.relu(bn(fc(x)))
+
+            # Output layer
+            x = self.output_layer(x)
+
+            return x
+
+        def mutate(self, device):
+            self.to(device)
+            min_fcs = 4  # Minimum number of fully connected layers
+            max_fcs = 14  # Maximum number of fully connected layers
+            min_convs = 3  # Minimum number of convolutional layers
+            max_convs = 6  # Maximum number of convolutional layers
+            noise = 0.5
+
+            # Decide to add or remove a fully connected layer
+            if random.random() < 0.1:
+                if len(self.fcs) < max_fcs and random.choice([True, False]):
+                    # Assuming all fully connected layers have 4096 units
+                    fc_input_size = 4096
+                    # Add a new fully connected layer with random weights
+                    self.fcs.append(nn.Linear(fc_input_size, 4096))
+                elif len(self.fcs) > min_fcs:
+                    # Remove a fully connected layer
+                    del self.fcs[-1]
+
+            # Decide to add or remove a convolution layer
+            if random.random() < 0.1:
+                if len(self.convs) < max_convs and random.choice([True, False]):
+                    # Get the number of output channels from the last Conv2D layer
+                    last_out_channels = self.convs[-1].out_channels
+                    # Add a new convolution layer with random weights
+                    self.convs.append(nn.Conv2d(last_out_channels, last_out_channels * 2, kernel_size=3, padding=1))
+                elif len(self.convs) > min_convs:
+                    # Remove a convolution layer
+                    del self.convs[-1]
+
+            # Mutate existing weights
+            with torch.no_grad():
+                for param in self.parameters():
+                    if random.random() < 0.1:
+                        param += torch.randn_like(param) * noise
+
+            self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.95, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False):
+        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=True, device='cuda:0'):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
             self.vebrose = vebrose
-            # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
-            self.devices = [torch.device('cuda:0'), torch.device('cuda:1')]
+            # Create the device variable, will work with 'cuda:0', 'cuda:1', and 'cpu'
+            self.device = torch.device(device)
 
             # Create the online model and the target model
             self.model = ChessNet()
             self.target_model = TargetChessNet()
 
-            # Do DataParallel for simplicity for now (will implement better parallelism in the future)
-            self.model = nn.DataParallel(self.model, device_ids=self.devices)
-            self.target_model = nn.DataParallel(self.target_model, device_ids=self.devices)
-            # Move the models to device
-            self.model = self.model.to(self.devices[0])   
-            self.target_model = self.target_model.to(self.devices[0])
- 
+            # Move models to device
+            self.model = self.model.to(self.device)
+            self.target_model = self.target_model.to(self.device)
+
             self.epsilon = epsilon
             self.epsilon_min = epsilon_min
             self.epsilon_decay = epsilon_decay
@@ -311,8 +272,8 @@ try:
             self.loss_fn = nn.MSELoss()
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-API-TOKEN'
-            self.name = 'YOUR-USERNAME'
+            self.token = 'YOUR-API-KEY'
+            self.name = 'YOUR-USERNAME-OR-PSEUDONYM'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -339,30 +300,7 @@ try:
             self.current_move = False
 
 
-            self.game_id = None
-            self.game_over = False
-            self.game_over_count = 0
-            self.opponent_username = None
-            self.color = None
-            self.error = None
-            self.is_draw = False
-            self.is_stalemate = False
-            self.lastfen = None
-            self.backupfen = None
-            self.plot = False
-            self.opponent_move = None
-            self.repeat_count = 0
-            self.Last_Move = None
-            self.my_color = None
-            self.best_reward = 0
-            self.batch_size = 270
-            self.states = []
-            self.next_states = []
-            self.actions = []
-            self.current_move = False
-
-
-            print("Using", torch.cuda.device_count(), "GPUs!")
+            print(f"Using device: {device}!")
             # self.model = torch.nn.parallel.DistributedDataParallel(self.target_model)
             # self.target_model = torch.nn.parallel.DistributedDataParallel(self.target_model)
 
@@ -371,13 +309,28 @@ try:
             # self.target_model.to(self.device)
             time.sleep(1)
 
+        def load_attention_weights(self, model_name, model_name_state_dict_pointer, checkpoint):
+    
+            # Extract the state dictionary for the attention layers
+            attention_weights = {k: v for k, v in checkpoint[f'{model_name_state_dict_pointer}_state_dict'].items() if 'attention' in k}
+            # Extract the rest of the weights
+            rest_weights = {k: v for k, v in checkpoint[f'{model_name_state_dict_pointer}_state_dict'].items() if 'attention' not in k}
+
+
+            # Load the weights into the respective parts of the model
+            model_name.attention1.load_state_dict(attention_weights, strict=False)
+            model_name.attention2.load_state_dict(attention_weights, strict=False)
+            model_name.load_state_dict(rest_weights, strict=False)
+
         def load_model_weights_both(self, model_path):
             model_weights_before = {name: param.clone() for name, param in self.model.named_parameters()}
             checkpoint = torch.load(model_path)
             self.model.train()
             self.target_model.train()
-            self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-            self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
+            # self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+            # self.target_model.load_state_dict(checkpoint['target_model_state_dict'], strict=False)
+            self.load_attention_weights(self.model, "model", checkpoint)
+            self.load_attention_weights(self.target_model, "target_model", checkpoint)
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.target_optimizer.load_state_dict(checkpoint['target_optimizer_state_dict'])
             self.model.eval()
@@ -432,9 +385,12 @@ try:
                              
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_draw = True
+                            time.sleep(5)
+                            
                         if self.vebrose:
                         
                             print("checking checkpoint 3...")
+                        
                         if game_status == 'stalemate':
                             board.set_fen(self.backupfen)
                             if self.vebrose:
@@ -442,15 +398,19 @@ try:
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_stalemate = True
                             self.is_draw = True
+                            time.sleep(5)
+                            
                         if self.vebrose:
                         
                             print("checking checkpoint 4...")
+                        
                         if game_status == 'aborted':
                             board.set_fen(self.backupfen)
                             if self.vebrose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
+                            time.sleep(5)
 
                         if game_status == 'outoftime':
                             if self.vebrose:
@@ -466,7 +426,8 @@ try:
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
                             self.is_draw = True
-                            time.sleep(5)                  
+                            time.sleep(5)
+                                              
                         if self.vebrose:
       
                             print("checking checkpoint 5...")
@@ -485,12 +446,14 @@ try:
                         if self.repeat_count > 3:
                             if game_status == 'mate':
                                 self.game_over = True
+                                time.sleep(5)
                             else:
                                 pass
                         if self.repeat_count > 60:
                             time.sleep(5)
                             self.error = True
                             self.game_over = True
+                            time.sleep(5)
 
                         else:
                             if self.vebrose:
@@ -513,7 +476,14 @@ try:
                 self.client.bots.make_move(self.game_id, move)
             except Exception:
                 pass
-
+        def clearscreen(self):
+            x = platform.platform()
+            if x.startswith("Linux"):
+                os.system('clear')
+            elif x.startswith("Windows"):
+                os.system('cls')
+            else:
+                os.system('clear')
                 
         def disable_function(func):
             @wraps(func)
@@ -585,7 +555,7 @@ try:
                         'target_model_state_dict': self.target_model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                        }, "GuineaBot3_COMPACT.pt")
                         self.memory_white = []
                         self.short_term_memory_white = []
                         # Clear the GPU cache
@@ -602,7 +572,7 @@ try:
                         'target_model_state_dict': self.target_model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                        }, "GuineaBot3_COMPACT.pt")
                         self.memory_black = []
                         self.short_term_memory_black = []
                         # Clear the GPU cache
@@ -614,6 +584,7 @@ try:
                 
         def replay_pgn_and_learn(self, file_path):
             try:
+                x = self.device
                 board1 = chess.Board()
                 game_count = 0
                 numgames = input("How many games do you want GuineaBot3 to selfplay?: ")
@@ -633,6 +604,7 @@ try:
 
                         for move in tqdm(moves, desc=f"Processing moves of game: {game_count}"):
                             state = self.board_to_state(board1)
+                            state = state.to(x)
                             self.color = board1.turn
                             original_piece_type = board1.piece_at(move.from_square).piece_type if board1.piece_at(move.from_square) else None
                             board1.push(move)
@@ -651,7 +623,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory_white = []
                             self.short_term_memory_white = []
                             # Clear the GPU cache
@@ -667,7 +639,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory_black = []
                             self.short_term_memory_black = []
                             # Clear the GPU cache
@@ -725,7 +697,6 @@ try:
             index = from_square * 12 + moved_piece - 1 + self.color * 6
             return index
 
-
         def print_board(self, board):
             symbols = {
                 'r': '♖', 'n': '♘', 'b': '♗', 'q': '♕',
@@ -772,10 +743,10 @@ try:
                     self.memory.append((state, action, reward, next_state, done))
                 
         def update_model(self, state, action, reward):
-            x = random.choice(list(self.devices))
+            x = self.device
             action_index = self.move_to_index(board, action)
             target_f = self.model(state).detach().clone().to(x)
-            target_f = target_f.to('cuda:0')  # Move target_f to cuda:0
+            target_f = target_f.to(self.device)  # Move target_f to device
             target_f[0, action_index] = reward
 
             loss = self.loss_fn(target_f, self.model(state))
@@ -783,10 +754,9 @@ try:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
-            target_f2 = self.target_model(state).detach().clone().to(x)
-            target_f2 = target_f2.to('cuda:0')
+            target_f2 = self.target_model(state).detach().clone().to(self.device)
             target_f2[0, action_index] = reward
-            loss2 = self.loss_fn2(target_f2, self.target_model(state).to('cuda:0'))
+            loss2 = self.loss_fn2(target_f2, self.target_model(state).to(self.device))
             self.target_optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
@@ -806,7 +776,7 @@ try:
                                             print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
-                                        state = state.to('cuda:0')  # Move the state to GPU
+                                        state = state.to(self.device)  # Move the state to GPU
 
                                         q_values = self.model(state).detach().view(-1)
                                         target_q_values = self.target_model(state).detach().view(-1)
@@ -819,13 +789,13 @@ try:
                                         move_index = legal_move_indices[torch.argmax(legal_q_values).item()]
                                         move = self.index_to_move(board, move_index)
                                         if self.vebrose:
-                                            print(f"{i}st Move calculated from bot: {move}\n")
+                                            print(f"Move calculated from bot: {move}\n")
                                         self.model.train()
                                         done = board.is_game_over()
                                         original_piece_type = board.piece_at(move.from_square).piece_type if board.piece_at(move.from_square) else None
                                         board.push(move)
                                         next_state = self.board_to_state(board)
-                                        next_state.to('cuda:0')
+                                        next_state.to(self.device)
                                         reward = self.get_reward(board, self.color, move, original_piece_type, selfplay, move_num)
                                         if np.isnan(reward) or np.isinf(reward):
                                             reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
@@ -848,14 +818,31 @@ try:
                                             
                                         return best_move
                 except KeyboardInterrupt:
-                        print("Keyboard interrupt detected, exiting...")
+                        board.turn == self.color
+                        manual_move = input("Enter your move in UCI format: ")
+                        best_move = chess.Move.from_uci(manual_move)
+                        self.model.train()
+                        state = self.board_to_state(board)
+                        done = board.is_game_over()
+                        original_piece_type = board.piece_at(best_move.from_square).piece_type if board.piece_at(best_move.from_square) else None
+                        self.remember(state, best_move, reward, next_state, done, selfplay, board.turn)
+                        if not selfplay:
+                            board.push(best_move)
+                        reward = self.get_reward(board, self.color, best_move, original_piece_type, selfplay)
+                        next_state = self.board_to_state(board)
+                        next_state.to(self.device)
+                        self.update_model(state, best_move, reward)
+
+                        if self.vebrose:
+                            print(f"DEBUG: Rewards: {reward}")
+                        return best_move
 
         def choose_actionrandom(self, state, legal_moves, board, selfplay=False):
                 while legal_moves:
                         self.model.eval()
                         self.target_model.eval()
                         state = self.board_to_state(board)
-                        state = state.to('cuda:0')  # Move the state to GPU
+                        state = state.to(self.device)  # Move the state to GPU
 
 
                         for i in range(11):
@@ -872,7 +859,7 @@ try:
                                 reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
                             self.move_rewards.append(reward)
                             next_state = self.board_to_state(board)
-                            next_state.to('cuda:0')
+                            next_state.to(self.device)
                             best_move = move
                             best_state = next_state
                             self.best_reward = reward
@@ -913,7 +900,7 @@ try:
 
 
         def replay(self, batch_size, board, selfplay=False, color=None):
-            x = random.choice(list(self.devices))
+            x = self.device
             if self.vebrose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
@@ -955,11 +942,11 @@ try:
                             action_index = self.move_to_index(board, action)
         
                             target_f = self.model(state).detach().clone().to(x)
-                            target_f = target_f.to('cuda:0')
+                            target_f = target_f.to(self.device)
                             target_f[0, action_index] = target
         
         
-                            loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
+                            loss = self.loss_fn(target_f, self.model(state).to(self.device))
                             self.optimizer.zero_grad()
                             loss.backward()
                             self.optimizer.step()
@@ -1002,11 +989,11 @@ try:
                                 action_index = self.move_to_index(board, action)
         
                                 target_f = self.model(state).detach().clone().to(x)
-                                target_f = target_f.to('cuda:0')
+                                target_f = target_f.to(self.device)
                                 target_f[0, action_index] = target
         
         
-                                loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
+                                loss = self.loss_fn(target_f, self.model(state).to(self.device))
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
@@ -1048,11 +1035,11 @@ try:
                                 action_index = self.move_to_index(board, action)
         
                                 target_f = self.model(state).detach().clone().to(x)
-                                target_f = target_f.to('cuda:0')
+                                target_f = target_f.to(self.device)
                                 target_f[0, action_index] = target
         
         
-                                loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
+                                loss = self.loss_fn(target_f, self.model(state).to(self.device))
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
@@ -1063,11 +1050,10 @@ try:
                 print("DONE!")
 
 
-
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april 23")
+                print("GuineaBot3 v4.1.9 (COMPACT EDITION, WHEEK WHEEK!!!), copyrighted (©) 2022 april 23")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1094,7 +1080,7 @@ try:
                            sys.stdout.write('\b')
 
 
-                    self.load_model_weights_both("GuineaBot3_LARGE.pt")
+                    self.load_model_weights_both("GuineaBot3_COMPACT.pt")
                     print('\nloaded model weights!')
                     time.sleep(1)
                 except Exception:
@@ -1132,7 +1118,7 @@ try:
                     self.get_game(board)
                     board.turn = chess.WHITE
                     counter = 0
-                    message = "Hi! I am {}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
+                    message = "Hi! I am {}, powered by GuineaBOTv4 COMPACT EDITION WHEEK WHEEK!!! I am a Learning model, please give feedback, so my developer can improve me!".format(self.name)
                     try:
                         self.client.bots.post_message(self.game_id, message, spectator=True)
                     except Exception:
@@ -1196,15 +1182,15 @@ try:
                                                     pass
                 
                                                 elif self.is_draw == True:
-
+                                                     x = self.device
                                                      done = True
-                                                     state = self.board_to_state(board)
+                                                     state = self.board_to_state(board).to(x)
                                                      reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
                                                      os.system('clear')
                                                      self.print_board(board)
                                                      print("Draw!")
                                                      self.draws += 1
-                                                     next_state = self.board_to_state(board)
+                                                     next_state = self.board_to_state(board).to(x)
                                                      self.update_model(state, opponent_move, reward)
                                                      self.remember(state, opponent_move, reward, next_state, done)
 
@@ -1242,9 +1228,9 @@ try:
                                                     board.turn = opponent_color
 
                                                     if opponent_move in board.legal_moves:
-
+                                                         x = self.device
                                                          done = board.is_game_over()
-                                                         state = self.board_to_state(board)
+                                                         state = self.board_to_state(board).to(x)
                                                          original_piece_type = board.piece_at(opponent_move.from_square).piece_type if board.piece_at(opponent_move.from_square) else None
                                                          board.push(opponent_move)
                                                          reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
@@ -1263,7 +1249,7 @@ try:
                                                              print(f"DEBUG: Epsilon: {self.epsilon}") 
                                                          
                                                          reward = -reward
-                                                         next_state = self.board_to_state(board)
+                                                         next_state = self.board_to_state(board).to(x)
                                                          self.update_model(state, opponent_move, reward)
                                                          self.remember(state, opponent_move, reward, next_state, done)
                                                          board.turn = self.color
@@ -1315,7 +1301,10 @@ try:
                                                         print(f"DEBUG: Epsilon: {self.epsilon}")
                                                     print(f"DEBUG: Loaded fen: {self.backupfen}")                                            
                                             # self.get_opponent_move(board, counter)
+                                            move = opponent_move
                                             break
+                                            
+                                            
 
                       
                                     except Exception as e:
@@ -1350,6 +1339,7 @@ try:
                                                 self.game_id = None
                                                 self.game_over = True
                                                 self.repeat_count = 0
+                                                break
 
                                
                                         elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
@@ -1360,6 +1350,7 @@ try:
                                             
                                     
 
+                                    """
                                     # Check if time without move exceeds 10 minutes
                                     if time.time() - start_time > 600:
                                         print("No move for 10 minutes, starting a new game...")
@@ -1377,7 +1368,7 @@ try:
                                                 'target_model_state_dict': self.target_model.state_dict(),
                                                 'optimizer_state_dict': self.optimizer.state_dict(),
                                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                                                }, "GuineaBot3_LARGE.pt")
+                                                }, "GuineaBot3_COMPACT.pt")
                                                 self.memory = []
                                                 # Clear the GPU cache
                                                 gc.collect()
@@ -1390,19 +1381,19 @@ try:
                                             self.game_over = True
 
                                         break
+                                        """
                             except Exception:
                                 pass    
  
                     if board.is_checkmate() and board.turn != self.color:
-                        if type(move) != 'chess.Move':
-                            move = chess.Move.from_uci(move)
                         done = True
-                        state = self.board_to_state(board)
+                        x = self.device
+                        state = self.board_to_state(board).to(x)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
                         self.draws += 1
-                        next_state = self.board_to_state(board)
+                        next_state = self.board_to_state(board).to(x)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
                         print(f"GuineaBOT Won!")
@@ -1431,7 +1422,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
@@ -1442,12 +1433,13 @@ try:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
-                        state = self.board_to_state(board)
+                        x = self.device
+                        state = self.board_to_state(board).to(x)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
                         self.draws += 1
-                        next_state = self.board_to_state(board)
+                        next_state = self.board_to_state(board).to(x)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
                         print(f"GuineaBOT Lost!")
@@ -1476,7 +1468,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory = []
                             # Clear the GPU cache
                             gc.collect()
@@ -1489,12 +1481,13 @@ try:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
-                        state = self.board_to_state(board)
+                        x = self.device
+                        state = self.board_to_state(board).to(x)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
                         self.draws += 1
-                        next_state = self.board_to_state(board)
+                        next_state = self.board_to_state(board).to(x)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
                         print("Draw!")
@@ -1524,7 +1517,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_COMPACT.pt")
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
@@ -1576,7 +1569,6 @@ try:
 
 
         
-
         def is_promotion(self, move):
             move = move.uci()
             start, end = move[:2], move[2:]
@@ -1585,7 +1577,6 @@ try:
             elif start[1] == '2' and end[1] == '1':
                 return True
             return False
-
 
         def get_reward(self, board, color, move, original_piece_type, selfplay=False, move_num=0):
             reward = 0
@@ -1830,4 +1821,4 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
-        
+
