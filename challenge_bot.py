@@ -46,6 +46,7 @@ while True:
                 bot_to_play = random.choice(online_bots)
                 time_control_minutes = random.randint(6, 40)  # Randomly choose a time control between 6 to 40 minutes
                 gamevar = ['standard', 'horde', 'chess960']
+                gamevar = random.choice(list(gamevar))
                 print(f"minutes: {time_control_minutes}")
                 time_control = time_control_minutes * 60  # Convert to seconds
 
