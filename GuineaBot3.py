@@ -245,7 +245,7 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, device='cuda:0'):
+        def __init__(self, alpha=0.3, gamma=0.985, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=True, device='cuda:0'):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
@@ -272,8 +272,8 @@ try:
             self.loss_fn = nn.MSELoss()
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-API-TOKEN-HERE'
-            self.name = 'YOUR-USERNAME-HERE'
+            self.token = 'YOUR-API-KEY'
+            self.name = 'YOUR-USERNAME-OR-PSEUDONYM'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -385,9 +385,12 @@ try:
                              
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_draw = True
+                            time.sleep(5)
+                            
                         if self.vebrose:
                         
                             print("checking checkpoint 3...")
+                        
                         if game_status == 'stalemate':
                             board.set_fen(self.backupfen)
                             if self.vebrose:
@@ -395,15 +398,19 @@ try:
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_stalemate = True
                             self.is_draw = True
+                            time.sleep(5)
+                            
                         if self.vebrose:
                         
                             print("checking checkpoint 4...")
+                        
                         if game_status == 'aborted':
                             board.set_fen(self.backupfen)
                             if self.vebrose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
+                            time.sleep(5)
 
                         if game_status == 'outoftime':
                             if self.vebrose:
@@ -419,7 +426,8 @@ try:
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
                             self.is_draw = True
-                            time.sleep(5)                  
+                            time.sleep(5)
+                                              
                         if self.vebrose:
       
                             print("checking checkpoint 5...")
@@ -438,12 +446,14 @@ try:
                         if self.repeat_count > 3:
                             if game_status == 'mate':
                                 self.game_over = True
+                                time.sleep(5)
                             else:
                                 pass
                         if self.repeat_count > 60:
                             time.sleep(5)
                             self.error = True
                             self.game_over = True
+                            time.sleep(5)
 
                         else:
                             if self.vebrose:
@@ -779,7 +789,7 @@ try:
                                         move_index = legal_move_indices[torch.argmax(legal_q_values).item()]
                                         move = self.index_to_move(board, move_index)
                                         if self.vebrose:
-                                            print(f"{i}st Move calculated from bot: {move}\n")
+                                            print(f"Move calculated from bot: {move}\n")
                                         self.model.train()
                                         done = board.is_game_over()
                                         original_piece_type = board.piece_at(move.from_square).piece_type if board.piece_at(move.from_square) else None
@@ -932,11 +942,11 @@ try:
                             action_index = self.move_to_index(board, action)
         
                             target_f = self.model(state).detach().clone().to(x)
-                            target_f = target_f.to('cuda:0')
+                            target_f = target_f.to(self.device)
                             target_f[0, action_index] = target
         
         
-                            loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
+                            loss = self.loss_fn(target_f, self.model(state).to(self.device))
                             self.optimizer.zero_grad()
                             loss.backward()
                             self.optimizer.step()
@@ -979,11 +989,11 @@ try:
                                 action_index = self.move_to_index(board, action)
         
                                 target_f = self.model(state).detach().clone().to(x)
-                                target_f = target_f.to('cuda:0')
+                                target_f = target_f.to(self.device)
                                 target_f[0, action_index] = target
         
         
-                                loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
+                                loss = self.loss_fn(target_f, self.model(state).to(self.device))
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
@@ -1025,11 +1035,11 @@ try:
                                 action_index = self.move_to_index(board, action)
         
                                 target_f = self.model(state).detach().clone().to(x)
-                                target_f = target_f.to('cuda:0')
+                                target_f = target_f.to(self.device)
                                 target_f[0, action_index] = target
         
         
-                                loss = self.loss_fn(target_f, self.model(state).to('cuda:0'))
+                                loss = self.loss_fn(target_f, self.model(state).to(self.device))
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
@@ -1108,7 +1118,7 @@ try:
                     self.get_game(board)
                     board.turn = chess.WHITE
                     counter = 0
-                    message = "Hi! I am {}, powered by GuineaBOTv4, COMPACT EDITION WHEEK WHEEK!!! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
+                    message = "Hi! I am {}, powered by GuineaBOTv4 COMPACT EDITION WHEEK WHEEK!!! I am a Learning model, please give feedback, so my developer can improve me!".format(self.name)
                     try:
                         self.client.bots.post_message(self.game_id, message, spectator=True)
                     except Exception:
@@ -1291,7 +1301,10 @@ try:
                                                         print(f"DEBUG: Epsilon: {self.epsilon}")
                                                     print(f"DEBUG: Loaded fen: {self.backupfen}")                                            
                                             # self.get_opponent_move(board, counter)
+                                            move = opponent_move
                                             break
+                                            
+                                            
 
                       
                                     except Exception as e:
@@ -1326,6 +1339,7 @@ try:
                                                 self.game_id = None
                                                 self.game_over = True
                                                 self.repeat_count = 0
+                                                break
 
                                
                                         elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
@@ -1336,6 +1350,7 @@ try:
                                             
                                     
 
+                                    """
                                     # Check if time without move exceeds 10 minutes
                                     if time.time() - start_time > 600:
                                         print("No move for 10 minutes, starting a new game...")
@@ -1366,12 +1381,11 @@ try:
                                             self.game_over = True
 
                                         break
+                                        """
                             except Exception:
                                 pass    
  
                     if board.is_checkmate() and board.turn != self.color:
-                        if type(move) != 'chess.Move':
-                            move = chess.Move.from_uci(move)
                         done = True
                         x = self.device
                         state = self.board_to_state(board).to(x)
@@ -1807,3 +1821,4 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
+
