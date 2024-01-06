@@ -45,14 +45,14 @@ while True:
             if games == None:
                 bot_to_play = random.choice(online_bots)
                 time_control_minutes = random.randint(6, 40)  # Randomly choose a time control between 6 to 40 minutes
-                variant = ['standard', 'horde', 'chess960']
+                gamevar = ['standard', 'horde', 'chess960']
                 print(f"minutes: {time_control_minutes}")
                 time_control = time_control_minutes * 60  # Convert to seconds
 
 
                 try:
                     print(f"Challenging {bot_to_play['id']} with time {time_control_minutes}, variant {variant} for increment of minutes")
-                    client.challenges.create(bot_to_play['id'], variant=, clock_limit=time_control, clock_increment=0, rated=True)
+                    client.challenges.create(bot_to_play['id'], variant=gamevar, clock_limit=time_control, clock_increment=0, rated=True)
 
                 except Exception:
                     time.sleep(90)
