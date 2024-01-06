@@ -51,7 +51,7 @@ while True:
 
 
                 try:
-                    print(f"Challenging {bot_to_play['id']} with time {time_control_minutes}, variant {variant} for increment of minutes")
+                    print(f"Challenging {bot_to_play['id']} with time {time_control_minutes}, variant {gamevar} for increment of minutes")
                     client.challenges.create(bot_to_play['id'], variant=gamevar, clock_limit=time_control, clock_increment=0, rated=True)
 
                 except Exception:
