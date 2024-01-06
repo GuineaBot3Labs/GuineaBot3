@@ -1,24 +1,16 @@
-import berserk
 import requests
-import traceback
 import time
 import random
+import traceback
+import json
+import berserk
 
+
+time_difference = time.time()
 TOKEN = 'YOUR-ACCESS-KEY'
-
+NAME = 'YOUR-USERNAME'
 tokensession = berserk.TokenSession(TOKEN)
 client = berserk.Client(session=tokensession)
-session = requests.Session()
-session.headers.update({"Authorization": f"Bearer {TOKEN}"})
-session_counter = 0  # Initialize a session counter
-
-class Game:
-        
-    def get_game(self, username, challenge_id):
-        global session_counter
-        print(f"Accepted challenge from {username} (Session: {session_counter})")
-
-
 session = requests.Session()
 session.headers.update({"Authorization": f"Bearer {TOKEN}"})
 
@@ -34,66 +26,45 @@ def get_game():
 
         games = response.json()['nowPlaying']
         for game in games:
-        
+
             return games
         time.sleep(5)
         return None
 
     except Exception:
         traceback.print_exc()
-        
-def handle_challenge(challenge):
-    username = challenge['challenger']['id']
-    challenge_id = challenge['id']
-    time_control = challenge['timeControl']
-    variant = challenge['variant']['key']
-    games = get_game()
-    
-    if games != None:
-        print(f"Declined challenge from {username} due to being too busy at the moment.")
-        try:
-            client.challenges.decline(challenge_id, reason=berserk.Reason.LATER)
-        except Exception as e:
-            pass
-        return
 
-    if variant != 'standard':
-        print(f"Declined challenge from {username} due to variant {variant}")
-        try:
-            client.challenges.decline(challenge_id, reason=berserk.Reason.VARIANT)
-        except Exception as e:
-            pass
-        return
+# Check for 2-minute interval outside the loop
+while True:
+    if time_difference - time.time() < 90:
+        response = session.get('https://lichess.org/api/bot/online')
+        online_bots = [json.loads(line) for line in response.text.splitlines() if NAME not in line]
 
-    if time_control['type'] == 'clock' and time_control['limit'] < 18 * 60:
-        print(f"Declined challenge from {username} due to time control below 18 minutes")
         try:
-            client.challenges.decline(challenge_id, reason=berserk.Reason.TIMECONTROL)
-        except Exception as e:
-            pass
-        return
+            games = get_game()  # Get the ongoing games
+            if games == None:
+                bot_to_play = random.choice(online_bots)
+                time_control_minutes = random.randint(6, 40)  # Randomly choose a time control between 6 to 40 minutes
+                variant = ['standard', 'horde', 'chess960']
+                print(f"minutes: {time_control_minutes}")
+                time_control = time_control_minutes * 60  # Convert to seconds
 
-    if username != "vladK17": # built in firewall that will block all requests from this specific user due to suspicious activity (bot spamming)
-        try:
-            client.challenges.accept(challenge_id)
-        except Exception as e:
-            pass
-        global session_counter
-        game = Game()
-        game.get_game(username, challenge_id)
-        session_counter += 1
 
+                try:
+                    print(f"Challenging {bot_to_play['id']} with time {time_control_minutes}, variant {variant} for increment of minutes")
+                    client.challenges.create(bot_to_play['id'], variant=, clock_limit=time_control, clock_increment=0, rated=True)
+
+                except Exception:
+                    time.sleep(90)
+
+                last_challenge_time = time.time()  # Reset the timestamp for the last challenge
+
+            else:
+                print("there is a game going on currently, sleeping...")
+                time.sleep(90)
+        except Exception:
+            traceback.print_exc()
+            continue
     else:
-        try:
-            client.challenges.decline(challenge_id, reason=berserk.Reason.GENERIC)
-        except Exception as e:
-            pass
-        print(f"Declined challenge from {username}")
-
-# Stream incoming challenges and handle them
-for event in client.board.stream_incoming_events():
-    if event['type'] == 'challenge':
-        handle_challenge(event['challenge'])
-        last_challenge_time = time.time()
-
-
+        print(f"Have not reached time of the timer... {last_challenge_time}")
+        time.sleep(40)
