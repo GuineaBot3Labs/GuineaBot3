@@ -40,7 +40,7 @@ try:
 
 
     class ChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
+        def __init__(self, num_convs=3, num_fcs=7):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
@@ -160,7 +160,7 @@ try:
 
 
     class TargetChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=14):
+        def __init__(self, num_convs=3, num_fcs=7):
             super(TargetChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
@@ -312,7 +312,7 @@ try:
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
             self.token = 'YOUR-API-KEY'
-            self.name = 'YOUR-USERNAME-HERE'
+            self.name = 'YOUR-USERNAME'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -612,7 +612,7 @@ try:
                         'target_model_state_dict': self.target_model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                        }, "GuineaBot3_PARALLEL_COMPACT.pt")
                         self.memory_white = []
                         self.short_term_memory_white = []
                         # Clear the GPU cache
@@ -629,7 +629,7 @@ try:
                         'target_model_state_dict': self.target_model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                        }, "GuineaBot3_PARALLEL_COMPACT.pt")
                         self.memory_black = []
                         self.short_term_memory_black = []
                         # Clear the GPU cache
@@ -678,7 +678,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_PARALLEL_COMPACT.pt")
                             self.memory_white = []
                             self.short_term_memory_white = []
                             # Clear the GPU cache
@@ -694,7 +694,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_PARALLEL_COMPACT.pt")
                             self.memory_black = []
                             self.short_term_memory_black = []
                             # Clear the GPU cache
@@ -1132,7 +1132,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april 23")
+                print("GuineaBot3 Parallel-COMPACT edition, WHEEK WHEEK!! v4.2.0, copyrighted (©) 2024 January Guinea_Pig_Lord")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1159,7 +1159,7 @@ try:
                            sys.stdout.write('\b')
 
 
-                    self.load_model_weights_both("GuineaBot3_LARGE.pt")
+                    self.load_model_weights_both("GuineaBot3_PARALLEL_COMPACT.pt")
                     print('\nloaded model weights!')
                     time.sleep(1)
                 except Exception:
@@ -1442,7 +1442,7 @@ try:
                                                 'target_model_state_dict': self.target_model.state_dict(),
                                                 'optimizer_state_dict': self.optimizer.state_dict(),
                                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                                                }, "GuineaBot3_LARGE.pt")
+                                                }, "GuineaBot3_PARALLEL_COMPACT.pt")
                                                 self.memory = []
                                                 # Clear the GPU cache
                                                 gc.collect()
@@ -1496,7 +1496,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_PARALLEL_COMPACT.pt")
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
@@ -1541,7 +1541,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_PARALLEL_COMPACT.pt")
                             self.memory = []
                             # Clear the GPU cache
                             gc.collect()
@@ -1589,7 +1589,7 @@ try:
                             'target_model_state_dict': self.target_model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                            }, "GuineaBot3_PARALLEL_COMPACT.pt")
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
