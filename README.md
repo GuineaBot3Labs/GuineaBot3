@@ -12,7 +12,7 @@
 A lichess bot that self learns and improves over time. You can watch GuineaBot3COMPACT's games <a href="https://lichess.org/@/GuineaBot3COMPACT/tv">here</a>
 
 ## UPDATES ##
-### COMPACT EDITION, WHEEK WHEEK!!! ###
+### PARALLEL-COMPACT EDITION, WHEEK WHEEK!!! ###
 In GuineaBot3 v4.2.0, PARALLEL-COMPACT EDITION, in this version, we have added parallel computing to the model, this can be useful if you have two 2 GB GPUs, or you simply want training time speed. This edition does not add much to electricity bill, it can run up to 8 instances on two 12 GB GPUs, WHEEK WHEEK!!!
 
 ## SETUP ##
