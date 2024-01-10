@@ -312,7 +312,7 @@ try:
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
             self.token = 'YOUR-API-KEY'
-            self.name = 'YOUR-USERNAME'
+            self.name = 'YOUR-USERNAME-HERE'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
 
@@ -326,7 +326,7 @@ try:
             self.is_stalemate = False
             self.lastfen = None
             self.backupfen = None
-            self.plot = False
+            self.plot = True
             self.opponent_move = None
             self.repeat_count = 0
             self.Last_Move = None
@@ -411,11 +411,14 @@ try:
             print("Done!")
 
         def update_optim(self, optimizer, model, device):
-            optimizer.param_groups[0]['params'] = list(model.parameters())
-            for state in optimizer.state.values():
-                for k, v in state.items():
-                    if torch.is_tensor(v):
-                        state[k] = v.to(device)
+            with torch.no_grad():
+                optimizer.param_groups[0]['params'] = list(model.parameters())
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if torch.is_tensor(v):
+                            state[k] = v.to(device).detach()
+                gc.collect()
+                torch.cuda.empty_cache()
                     
         @timeout(5)
         def stream_game(self, board):
@@ -796,7 +799,6 @@ try:
                     self.memory.append((state, action, reward, next_state, done))
                 
         def update_model(self, state, action, reward):
-            devlist = random.shuffle(self.devices)
             x = self.devices[0]
             x2 = self.devices[1]
             self.model = self.model.to(x)
@@ -806,10 +808,12 @@ try:
             state = state.to(x)
             action_index = self.move_to_index(board, action)
             target_f = self.model(state).detach().clone().to(x)
-            target_f = target_f.to(x)  # Move target_f to cuda:0
+            target_f = target_f.to(x).detach()  # Move target_f to cuda:0
             target_f[0, action_index] = reward
 
             loss = self.loss_fn(target_f, self.model(state).to(x))
+            if self.vebrose:
+                print(f"Loss: {loss}")
             self.optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
@@ -819,6 +823,8 @@ try:
             target_f2 = target_f2.to(x2)
             target_f2[0, action_index] = reward
             loss2 = self.loss_fn2(target_f2, self.target_model(state).to(x2))
+            if self.vebrose:
+                print(f"Loss2: {loss2}")
             self.target_optimizer.zero_grad()
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
@@ -843,7 +849,7 @@ try:
                                             print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
-                                        state = state.to(x)  # Move the state to device
+                                        state = state.to(x) # Move the state to device
 
                                         q_values = self.model(state).detach().view(-1).to(x)
                                         state = state.to(x2)
@@ -856,8 +862,6 @@ try:
 
                                         move_index = legal_move_indices[torch.argmax(legal_q_values).item()]
                                         move = self.index_to_move(board, move_index)
-                                        if self.vebrose:
-                                            print(f"{i}st Move calculated from bot: {move}\n")
                                         self.model.train()
                                         done = board.is_game_over()
                                         original_piece_type = board.piece_at(move.from_square).piece_type if board.piece_at(move.from_square) else None
@@ -898,7 +902,7 @@ try:
                         self.model.eval()
                         self.target_model.eval()
                         state = self.board_to_state(board)
-                        state = state.to(x)  # Move the state to Device
+                        state = state.to(x) # Move the state to Device
 
 
                         for i in range(11):
@@ -958,8 +962,11 @@ try:
         def replay(self, batch_size, board, selfplay=False, color=None):
             devlist = random.shuffle(self.devices)
             x = self.devices[0]
+            x2 = self.devices[1] # This is to make sure that the target_model and online_model do not get placed on the same device.
             self.model = self.model.to(x)
             self.update_optim(self.optimizer, self.model, x)
+            self.target_model.to(x2)
+            self.update_optim(self.target_optimizer, self.target_model, x2)
             if self.vebrose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
@@ -984,7 +991,7 @@ try:
                     else:
                         # Online Q-Network update
                         with torch.no_grad():
-                            next_state_q_values = self.target_model(next_state).view(-1)
+                            next_state_q_values = self.model(next_state).view(-1)
         
                         next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
         
@@ -1000,15 +1007,19 @@ try:
                             # Convert move to a unique index
                             action_index = self.move_to_index(board, action)
         
-                            target_f = self.model(state).detach().clone().to(x)
+                            target_f = self.model(state).clone().to(x)
                             target_f = target_f.to(x)
                             target_f[0, action_index] = target
         
         
                             loss = self.loss_fn(target_f, self.model(state).to(x))
+                            if self.vebrose:
+                                print(f"Loss: {loss}")
                             self.optimizer.zero_grad()
                             loss.backward()
                             self.optimizer.step()
+                gc.collect()
+                torch.cuda.empty_cache()
             else:
                 if color == chess.WHITE:
                     # Sample from long-term memory (self.memory_white)
@@ -1031,7 +1042,7 @@ try:
                         else:
                             # Double Q-Network update
                             with torch.no_grad():
-                                next_state_q_values = self.target_model(next_state).view(-1)
+                                next_state_q_values = self.model(next_state).view(-1)
         
                             next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
         
@@ -1047,15 +1058,19 @@ try:
                                 # Convert move to a unique index
                                 action_index = self.move_to_index(board, action)
         
-                                target_f = self.model(state).detach().clone().to(x)
+                                target_f = self.model(state).clone().to(x)
                                 target_f = target_f.to(x)
                                 target_f[0, action_index] = target
         
         
                                 loss = self.loss_fn(target_f, self.model(state).to(x))
+                                if self.vebrose:
+                                    print(f"Loss: {loss}")
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
+                    gc.collect()
+                    torch.cuda.empty_cache()
                 else:
                     # Sample from long-term memory (self.memory_black)
                     print(len(self.memory_black))
@@ -1077,7 +1092,7 @@ try:
                         else:
                             # Online Q-Network update
                             with torch.no_grad():
-                                next_state_q_values = self.target_model(next_state).view(-1)
+                                next_state_q_values = self.model(next_state).view(-1)
             
                             next_state_legal_move_indices = [self.move_to_index(board, move) for move in board.legal_moves]
         
@@ -1099,9 +1114,13 @@ try:
         
         
                                 loss = self.loss_fn(target_f, self.model(state).to(x))
+                                if self.vebrose:
+                                    print(f"Loss: {loss}")
                                 self.optimizer.zero_grad()
                                 loss.backward()
                                 self.optimizer.step()
+                    gc.collect()
+                    torch.cuda.empty_cache()
         
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
@@ -1711,7 +1730,7 @@ try:
                     reward += 1000
                 # Higher penalty for draw conditions to encourage decisive outcomes
                 elif board.is_stalemate() or board.is_insufficient_material() or board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
-                    reward -= 5000
+                    reward += 3500
 
             # Scale the reward
             reward = reward * 0.01
