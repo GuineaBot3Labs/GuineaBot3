@@ -282,7 +282,7 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.95, epsilon=0.5, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False):
+        def __init__(self, alpha=0.3, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
@@ -311,7 +311,7 @@ try:
             self.loss_fn = nn.MSELoss()
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-API-KEY'
+            self.token = 'YOUR-TOKEN-HERE'
             self.name = 'YOUR-USERNAME-HERE'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
@@ -366,25 +366,24 @@ try:
 
             time.sleep(1)
 
-        def load_model_weights_both(self, model_path):
+        def load_model_weights_both(self, model_path1, model_path2):
             model_weights_before = {name: param.clone() for name, param in self.model.named_parameters()}
     
-            # Load the checkpoint on CPU to avoid GPU memory overflow
-            self.checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+            # Load the checkpoint on GPUs
+            self.checkpoint = torch.load(model_path1, map_location=torch.device(self.devices[0]))
+            self.checkpoint2 = torch.load(model_path2, map_location=torch.device(self.devices[1]))
     
             # Load state dict for self.model and move it to self.devices[0]
             self.model.load_state_dict(self.checkpoint['model_state_dict'], strict=False)
-            self.model.to(self.devices[0])
             self.model.train()
 
             # Load state dict for self.target_model and move it to self.devices[1]
-            self.target_model.load_state_dict(self.checkpoint['target_model_state_dict'], strict=False)
-            self.target_model.to(self.devices[1])
+            self.target_model.load_state_dict(self.checkpoint2['target_model_state_dict'], strict=False)
             self.target_model.train()
 
             # Load optimizer states
-            self.optimizer.load_state_dict(self.checkpoint['optimizer_state_dict'])
-            self.target_optimizer.load_state_dict(self.checkpoint['target_optimizer_state_dict'])
+            self.optimizer.load_state_dict(self.checkpoint1['optimizer_state_dict'])
+            self.target_optimizer.load_state_dict(self.checkpoint2['target_optimizer_state_dict'])
 
             # Ensure the optimizers are using parameters on the correct devices
             for state in self.optimizer.state.values():
@@ -607,14 +606,17 @@ try:
                         self.replay(batch_size, board, True, chess.WHITE)
                         print("Saving/Updating model weights")
                         # Save the model weights after each episode
+                        # Save the online model weights
                         torch.save({
-                        'model_state_dict': self.model.state_dict(),
-                        'target_model_state_dict': self.target_model.state_dict(),
-                        'optimizer_state_dict': self.optimizer.state_dict(),
-                        'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
-                        self.memory_white = []
-                        self.short_term_memory_white = []
+                            'model_state_dict': self.model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                        # Save the target model weights
+                        torch.save({
+                            'target_model_state_dict': self.target_model.state_dict(),
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE_TARGET.pt")
                         # Clear the GPU cache
                         gc.collect()
                         torch.cuda.empty_cache()
@@ -624,12 +626,18 @@ try:
                         self.replay(batch_size, board, True, chess.BLACK)
                         print("Saving/Updating model weights")
                         # Save the model weights after each episode
+                        # Save the online model weights
                         torch.save({
-                        'model_state_dict': self.model.state_dict(),
-                        'target_model_state_dict': self.target_model.state_dict(),
-                        'optimizer_state_dict': self.optimizer.state_dict(),
-                        'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_LARGE.pt")
+                            'model_state_dict': self.model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                        # Save the target model weights
+                        torch.save({
+                            'target_model_state_dict': self.target_model.state_dict(),
+                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                        }, "GuineaBot3_LARGE_TARGET.pt")
+
                         self.memory_black = []
                         self.short_term_memory_black = []
                         # Clear the GPU cache
@@ -673,12 +681,18 @@ try:
                             self.replay(self.batch_size, board1, True, chess.WHITE)
                             print("Saving/Updating model weights")
                             # Save the model weights after each episode
+                            # Save the online model weights
                             torch.save({
-                            'model_state_dict': self.model.state_dict(),
-                            'target_model_state_dict': self.target_model.state_dict(),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                                'model_state_dict': self.model.state_dict(),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                            # Save the target model weights
+                            torch.save({
+                                'target_model_state_dict': self.target_model.state_dict(),
+                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_TARGET.pt")
+
                             self.memory_white = []
                             self.short_term_memory_white = []
                             # Clear the GPU cache
@@ -689,12 +703,18 @@ try:
                             self.replay(self.batch_size, board1, True, chess.BLACK)
                             print("Saving/Updating model weights")
                             # Save the model weights after each episode
+                            # Save the online model weights
                             torch.save({
-                            'model_state_dict': self.model.state_dict(),
-                            'target_model_state_dict': self.target_model.state_dict(),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                                'model_state_dict': self.model.state_dict(),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                            # Save the target model weights
+                            torch.save({
+                                'target_model_state_dict': self.target_model.state_dict(),
+                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_TARGET.pt")
+
                             self.memory_black = []
                             self.short_term_memory_black = []
                             # Clear the GPU cache
@@ -831,7 +851,7 @@ try:
             self.target_optimizer.step()
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
-                devlist = random.shuffle(self.devices)
+                random.shuffle(self.devices)
                 x = self.devices[0]
                 x2 = self.devices[1]
                 self.model = self.model.to(x)
@@ -893,7 +913,7 @@ try:
                         print("Keyboard interrupt detected, exiting...")
 
         def choose_actionrandom(self, state, legal_moves, board, selfplay=False):
-                devlist = random.shuffle(self.devices)
+                random.shuffle(self.devices)
                 x = self.devices[0]
                 x2 = self.devices[1]
                 self.model = self.model.to(x)
@@ -960,7 +980,7 @@ try:
 
 
         def replay(self, batch_size, board, selfplay=False, color=None):
-            devlist = random.shuffle(self.devices)
+            random.shuffle(self.devices)
             x = self.devices[0]
             x2 = self.devices[1] # This is to make sure that the target_model and online_model do not get placed on the same device.
             self.model = self.model.to(x)
@@ -1132,7 +1152,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april 23")
+                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april Guinea_Pig_Lord")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1159,7 +1179,7 @@ try:
                            sys.stdout.write('\b')
 
 
-                    self.load_model_weights_both("GuineaBot3_LARGE.pt")
+                    self.load_model_weights_both("GuineaBot3_LARGE_ONLINE.pt", "GuineaBot3_LARGE_TARGET.pt")
                     print('\nloaded model weights!')
                     time.sleep(1)
                 except Exception:
@@ -1437,12 +1457,17 @@ try:
 
                                                 print("Saving/Updating model weights")
                                                 # Save the model weights after each episode
+                                                # Save the online model weights
                                                 torch.save({
-                                                'model_state_dict': self.model.state_dict(),
-                                                'target_model_state_dict': self.target_model.state_dict(),
-                                                'optimizer_state_dict': self.optimizer.state_dict(),
-                                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                                                }, "GuineaBot3_LARGE.pt")
+                                                    'model_state_dict': self.model.state_dict(),
+                                                    'optimizer_state_dict': self.optimizer.state_dict(),
+                                                }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                                                # Save the target model weights
+                                                torch.save({
+                                                    'target_model_state_dict': self.target_model.state_dict(),
+                                                    'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                                                }, "GuineaBot3_LARGE_TARGET.pt")
                                                 self.memory = []
                                                 # Clear the GPU cache
                                                 gc.collect()
@@ -1491,12 +1516,18 @@ try:
 
                                 print("Saving/Updating model weights")
                             # Save the model weights after each episode
+                            # Save the online model weights
                             torch.save({
-                            'model_state_dict': self.model.state_dict(),
-                            'target_model_state_dict': self.target_model.state_dict(),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                                'model_state_dict': self.model.state_dict(),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                            # Save the target model weights
+                            torch.save({
+                                'target_model_state_dict': self.target_model.state_dict(),
+                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_TARGET.pt")
+
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
@@ -1536,12 +1567,18 @@ try:
 
                                 print("Saving/Updating model weights")
                             # Save the model weights after each episode
+                            # Save the online model weights
                             torch.save({
-                            'model_state_dict': self.model.state_dict(),
-                            'target_model_state_dict': self.target_model.state_dict(),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                                'model_state_dict': self.model.state_dict(),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                            # Save the target model weights
+                            torch.save({
+                                'target_model_state_dict': self.target_model.state_dict(),
+                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_TARGET.pt")
+
                             self.memory = []
                             # Clear the GPU cache
                             gc.collect()
@@ -1584,12 +1621,18 @@ try:
 
                                 print("Saving/Updating model weights")
                             # Save the model weights after each episode
+                            # Save the online model weights
                             torch.save({
-                            'model_state_dict': self.model.state_dict(),
-                            'target_model_state_dict': self.target_model.state_dict(),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_LARGE.pt")
+                                'model_state_dict': self.model.state_dict(),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                            # Save the target model weights
+                            torch.save({
+                                'target_model_state_dict': self.target_model.state_dict(),
+                                'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                            }, "GuineaBot3_LARGE_TARGET.pt")
+
                             self.memory = []
                             gc.collect()
                             torch.cuda.empty_cache()
