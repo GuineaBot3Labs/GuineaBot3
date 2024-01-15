@@ -834,7 +834,7 @@ try:
             target_f = target_f.to(x).detach()  # Move target_f to cuda:0
             target_f[0, action_index] = reward
 
-            loss = self.loss_fn(target_f, self.model(state).to(x))
+            loss = self.loss_fn(target_f, self.model(state))
             if self.vebrose:
                 print(f"Loss: {loss}")
             self.optimizer.zero_grad()
@@ -845,7 +845,7 @@ try:
             target_f2 = self.target_model(state).detach().clone().to(x2)
             target_f2 = target_f2.to(x2)
             target_f2[0, action_index] = reward
-            loss2 = self.loss_fn2(target_f2, self.target_model(state).to(x2))
+            loss2 = self.loss_fn2(target_f2, self.target_model(state))
             if self.vebrose:
                 print(f"Loss2: {loss2}")
             self.target_optimizer.zero_grad()
