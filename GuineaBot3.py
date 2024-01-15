@@ -416,7 +416,6 @@ try:
                     for k, v in state.items():
                         if torch.is_tensor(v):
                             state[k] = v.to(device).detach()
-                gc.collect()
                 torch.cuda.empty_cache()
                     
         @timeout(5)
@@ -646,7 +645,9 @@ try:
                     else:
                         self.short_term_memory_white = []
                         self.short_term_memory_black = []
-                
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        
         def replay_pgn_and_learn(self, file_path):
             try:
                 board1 = chess.Board()
@@ -723,7 +724,9 @@ try:
                         else:
                             self.short_term_memory_white = []
                             self.short_term_memory_black = []
-
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        
                 print("\nAll games processed. Total games:", game_count)
                 self.simulate_self_play(30)
             except KeyboardInterrupt:
@@ -849,6 +852,7 @@ try:
             loss2.backward()
             torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=1.0)
             self.target_optimizer.step()
+            del state, action, reward, target_f, target_f2, x, x2
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
                 random.shuffle(self.devices)
@@ -863,6 +867,7 @@ try:
                                             print("DEBUG: EXPLORATION MOVE")
                                         random_move = self.choose_actionrandom(state, legal_moves, board, selfplay)
                                         return random_move
+                                        del x, x2
 
                                 else:
                                         if self.vebrose:
@@ -907,8 +912,10 @@ try:
                                         self.remember(state, move, reward, next_state, done, selfplay, board.turn)
                                         if not selfplay:
                                             board.push(best_move)
-                                            
+
+                                        del x, x2, state, q_values, target_q_values, reward, next_state, done, original_piece_type, legal_move_indices, legal_q_values, move_index
                                         return best_move
+                                        
                 except KeyboardInterrupt:
                         print("Keyboard interrupt detected, exiting...")
 
@@ -976,6 +983,7 @@ try:
                             self.update_model(state, best_move, reward)
                             self.remember(state, move, reward, best_state, done, selfplay, board.turn)
                             board.push(best_move)
+                            del x, x2, state, reward, next_state, done, original_piece_type
                             return best_move
 
 
