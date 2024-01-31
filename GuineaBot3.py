@@ -68,7 +68,7 @@ try:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
                 
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -119,7 +119,6 @@ try:
             x = self.output_layer(x)
 
 
-            
             return x
             
         def mutate(self):
@@ -187,8 +186,8 @@ try:
             for conv in self.convs:
                 x = F.relu(conv(x))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                
-            fc_input_size = x.numel()  # Total number of elements in 'x'
+            fc_input_size = x.view(x.size(0), -1).size(1)
+
 
             # Fully connected layers and their corresponding Batch Normalization layers
             self.fcs = nn.ModuleList()
@@ -239,7 +238,6 @@ try:
             x = self.output_layer(x)
 
 
-            
             return x
 
         def mutate(self):
@@ -282,13 +280,13 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, batch_size=270):
+        def __init__(self, alpha=0.3, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, verbose=False, plot=False, batch_size=270):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
-            self.vebrose = vebrose
+            self.verbose = verbose
             if torch.cuda.device_count() < 2: # Check (pun intended) if the user has at least two different cuda compatible devices.
-                print("Must have at least two cuda compatible different devices, if not, use the compact version.")
+                print("Computer must have at least two cuda compatible different devices, if you do not, use the compact version at https://github.com/GuineaBot3Labs/deep-GuineaBot3-lichess-bot/tree/compact")
                 exit(1)
             # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
             self.devices = [torch.device('cuda:0'), torch.device('cuda:1')]
@@ -326,7 +324,7 @@ try:
             self.is_stalemate = False
             self.lastfen = None
             self.backupfen = None
-            self.plot = True
+            self.plot = plot
             self.opponent_move = None
             self.repeat_count = 0
             self.Last_Move = None
@@ -409,34 +407,18 @@ try:
             self.replay_from_file(board)
             print("Done!")
 
-        def update_optim(self, optimizer, model, device, save=False):
-            torch.cuda.empty_cache()
-            with torch.no_grad():
-                # Update optimizer parameters
-                for param_group in optimizer.param_groups:
-                    param_group['params'] = list(model.parameters())
-
-                # Transfer optimizer states to the new device
-                for state in optimizer.state.values():
-                    for k, v in state.items():
-                        if isinstance(v, torch.Tensor):
-                            state[k] = v.to(device)
-    
-            torch.cuda.empty_cache()
-
-        def save_optim(self, optimizer):
-            # Convert optimizer state to CPU for saving
+        def update_optim(self, optimizer, device):
             for state in optimizer.state.values():
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):
-                        state[k] = v.cpu()
-                    
+                        state[k] = v.to(device)
+                        
         @timeout(5)
         def stream_game(self, board):
             if self.game_over == False:
                 moves = self.client.games.stream_game_moves(self.game_id)
                 for line in moves:
-                    if self.vebrose:
+                    if self.verbose:
                         print(line)
 
                     self.backupfen = line.get('fen') # Get the backup FEN in case of invalid move error
@@ -458,7 +440,7 @@ try:
                         
                         
                         game_status = line.get('status', {}).get('name')  # Get the game status
-                        if self.vebrose:
+                        if self.verbose:
 
                             print("DEBUG: game status: ", game_status)
                         
@@ -466,32 +448,32 @@ try:
                          
                             print("checking checkpoint 2...")
                         if game_status == 'draw':
-                            if self.vebrose:
+                            if self.verbose:
                              
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_draw = True
-                        if self.vebrose:
+                        if self.verbose:
                         
                             print("checking checkpoint 3...")
                         if game_status == 'stalemate':
                             board.set_fen(self.backupfen)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_stalemate = True
                             self.is_draw = True
-                        if self.vebrose:
+                        if self.verbose:
                         
                             print("checking checkpoint 4...")
                         if game_status == 'aborted':
                             board.set_fen(self.backupfen)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
 
                         if game_status == 'outoftime':
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
@@ -499,22 +481,22 @@ try:
                             time.sleep(5)          
 
                         if game_status == 'resign':
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
                             self.is_draw = True
                             time.sleep(5)                  
-                        if self.vebrose:
+                        if self.verbose:
       
                             print("checking checkpoint 5...")
                         self.repeat_count += 1
-                        if self.vebrose:
+                        if self.verbose:
 
                             print(f"DEBUG: Repeat Count: {self.repeat_count}")
                         
                         if board.turn == self.color:
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Accidentally ran self.stream_game() though my turn...")
                             self.current_move = True
@@ -531,14 +513,14 @@ try:
                             self.game_over = True
 
                         else:
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("checking checkpoint 6...")
 
                                 print(f"DEBUG Opponent Move: {move}")
                                 print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
                             self.Last_Move = move
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("check complete!")
                             
@@ -606,60 +588,47 @@ try:
                         state = self.board_to_state(board2)
                         move_num += 1
                         move = self.choose_action(state, list(board2.legal_moves), board2, True, move_num)
-                        # print(f"Best move determined by GuineaBot3: {move}")
                         board2.push(move)
                         self.color = board2.turn
                         os.system('clear')
                         self.print_board(board2)
-                                
+                               
                     if len(self.memory_white) >= self.batch_size:
-                        if self.vebrose:
+                        if self.verbose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.WHITE)
                         print("Saving/Updating model weights")
-                        x = self.devices[0]
-                        x2 = self.devices[1]
                         # Save the online model weights
-                        self.save_optim(self.optimizer)
                         torch.save({
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                         }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
                         # Save the target model weights
-                        self.save_optim(self.target_optimizer)
                         torch.save({
                             'target_model_state_dict': self.target_model.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                         }, "GuineaBot3_LARGE_TARGET.pt")
-                        self.update_optim(self.optimizer, self.model, x)
-                        self.update_optim(self.target_optimizer, self.target_model, x2)
+                        
                         # Clear the GPU cache
                         gc.collect()
                         torch.cuda.empty_cache()
                     if len(self.memory_black) >= self.batch_size:
-                        if self.vebrose:
+                        if self.verbose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.BLACK)
                         print("Saving/Updating model weights")
-                        x = self.devices[0]
-                        x2 = self.devices[1]
-                        
                         # Save the online model weights
-                        self.save_optim(self.optimizer)
                         torch.save({
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                         }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                         # Save the target model weights
-                        self.save_optim(self.target_optimizer)
                         torch.save({
                             'target_model_state_dict': self.target_model.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                         }, "GuineaBot3_LARGE_TARGET.pt")
-
-                        self.update_optim(self.optimizer, self.model, x)
-                        self.update_optim(self.target_optimizer, self.target_model, x2)
                         
                         self.memory_black = []
                         self.short_term_memory_black = []
@@ -671,7 +640,8 @@ try:
                         self.short_term_memory_black = []
                         gc.collect()
                         torch.cuda.empty_cache()
-                        
+
+                
         def replay_pgn_and_learn(self, file_path):
             try:
                 board1 = chess.Board()
@@ -709,21 +679,21 @@ try:
                             x2 = self.devices[1]
                          
                             # Save the online model weights
-                            self.save_optim(self.optimizer)
+                            
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
-                            self.save_optim(self.target_optimizer)
+                            
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_TARGET.pt")
 
-                            self.update_optim(self.optimizer, self.model, x)
-                            self.update_optim(self.target_optimizer, self.target_model, x2)
+                            self.update_optim(self.optimizer, x)
+                            self.update_optim(self.target_optimizer, x2)
 
 
                             self.memory_white = []
@@ -739,21 +709,21 @@ try:
                             x2 = self.devices[1]
                         
                             # Save the online model weights
-                            self.save_optim(self.optimizer)
+                            
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
-                            self.save_optim(self.target_optimizer)
+                            
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_TARGET.pt")
 
-                            self.update_optim(self.optimizer, self.model, x)
-                            self.update_optim(self.target_optimizer, self.target_model, x2)
+                            self.update_optim(self.optimizer, x)
+                            self.update_optim(self.target_optimizer, x2)
 
 
                             self.memory_black = []
@@ -871,7 +841,7 @@ try:
             target_f[0, action_index] = reward
 
             loss = self.loss_fn(target_f, self.model(state))
-            if self.vebrose:
+            if self.verbose:
                 print(f"Loss: {loss}")
             self.optimizer.zero_grad()
             loss.backward()
@@ -882,7 +852,7 @@ try:
             target_f2 = target_f2.to(x2)
             target_f2[0, action_index] = reward
             loss2 = self.loss_fn2(target_f2, self.target_model(state))
-            if self.vebrose:
+            if self.verbose:
                 print(f"Loss2: {loss2}")
             self.target_optimizer.zero_grad()
             loss2.backward()
@@ -891,19 +861,19 @@ try:
             del state, action, reward, target_f, target_f2, x, x2
 
         def choose_action(self, state, legal_moves, board, selfplay=False, move_num=0):
-                # random.shuffle(self.devices)                x = self.devices[0]
+                x = self.devices[0]
                 x2 = self.devices[1]
                 try:
                         while legal_moves:
                                 if torch.rand(1) <= self.epsilon:
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print("DEBUG: EXPLORATION MOVE")
                                         random_move = self.choose_actionrandom(state, legal_moves, board, selfplay)
                                         return random_move
                                         del x, x2
 
                                 else:
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print("DEBUG: NOT EXPLORATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
@@ -931,7 +901,7 @@ try:
                                             reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
                                         self.move_rewards.append(reward)
                                         best_move = move
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print(f"DEBUG: Rewards: {self.move_rewards}")
                                         if self.plot:
                                             self.line.set_ydata(self.move_rewards)
@@ -965,7 +935,7 @@ try:
                         for i in range(11):
 
                             move = random.choice(list(board.legal_moves))
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"{i}st move from bot: {move}\n")
                             self.model.train()
                             done = board.is_game_over()
@@ -985,7 +955,7 @@ try:
                             board.pop()
                         
                         if best_move is not None:
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"DEBUG: Rewards: {self.move_rewards}")
                             if self.plot:
                                 self.line.set_ydata(self.move_rewards)
@@ -1001,7 +971,7 @@ try:
                             return best_move
                         else:
                             move = best_move
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"DEBUG: Rewards: {self.move_rewards}")
                             if self.plot:
                                 self.line.set_ydata(self.move_rewards)
@@ -1022,10 +992,10 @@ try:
             x = self.devices[0]
             x2 = self.devices[1] # This is to make sure that the target_model and online_model do not get placed on the same device.
             self.model = self.model.to(x)
-            self.update_optim(self.optimizer, self.model, x)
             self.target_model.to(x2)
-            self.update_optim(self.target_optimizer, self.target_model, x2)
-            if self.vebrose:
+            self.update_optim(self.optimizer, x)
+            self.update_optim(self.target_optimizer, x2)
+            if self.verbose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
                     print("DEBUG: Running self play version")
@@ -1055,7 +1025,7 @@ try:
         
                         next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
                         if next_state_legal_q_values.nelement() == 0:
-                            if self.vebrose:
+                            if self.verbose:
                                 print("DEBUG: next_state_legal_q_values is empty")
                             continue
                         else:
@@ -1071,7 +1041,7 @@ try:
         
         
                             loss = self.loss_fn(target_f, self.model(state).to(x))
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"Loss: {loss}")
                             self.optimizer.zero_grad()
                             loss.backward()
@@ -1106,7 +1076,7 @@ try:
         
                             next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
                             if next_state_legal_q_values.nelement() == 0:
-                                if self.vebrose:
+                                if self.verbose:
                                     print("DEBUG: next_state_legal_q_values is empty")
                                 continue
                             else:
@@ -1122,7 +1092,7 @@ try:
         
         
                                 loss = self.loss_fn(target_f, self.model(state).to(x))
-                                if self.vebrose:
+                                if self.verbose:
                                     print(f"Loss: {loss}")
                                 self.optimizer.zero_grad()
                                 loss.backward()
@@ -1156,7 +1126,7 @@ try:
         
                             next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
                             if next_state_legal_q_values.nelement() == 0:
-                                if self.vebrose:
+                                if self.verbose:
                                     print("DEBUG: next_state_legal_q_values is empty")
                                 continue
                             else:
@@ -1172,7 +1142,7 @@ try:
         
         
                                 loss = self.loss_fn(target_f, self.model(state).to(x))
-                                if self.vebrose:
+                                if self.verbose:
                                     print(f"Loss: {loss}")
                                 self.optimizer.zero_grad()
                                 loss.backward()
@@ -1182,7 +1152,7 @@ try:
         
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
-            if self.vebrose:
+            if self.verbose:
                 print("DONE!")
 
 
@@ -1190,7 +1160,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.1.9, copyrighted (©) 2022 april Guinea_Pig_Lord")
+                print("GuineaBot3 v4.2.4, copyrighted (©) 2024 Guinea_Pig_Lord")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1198,7 +1168,6 @@ try:
                 self.wins = 0
                 game = 1
                 if self.plot:
-                    matplotlib.use('Qt5Agg')
                     plt.ion()
                     plt.figure(figsize=(5,5))
                     plt.title('Rewards')
@@ -1442,7 +1411,7 @@ try:
 
                       
                                     except Exception as e:
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print(f"something happened, checking: {e}")
                                             print(f"Caught an exception of type: {type(e)}")
                                         if self.error == True:
@@ -1498,21 +1467,21 @@ try:
                                                 x2 = self.devices[1]
                         
                                                 # Save the online model weights
-                                                self.save_optim(self.optimizer)
+                                                
                                                 torch.save({
                                                     'model_state_dict': self.model.state_dict(),
                                                     'optimizer_state_dict': self.optimizer.state_dict(),
                                                 }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                                                 # Save the target model weights
-                                                self.save_optim(self.target_optimizer)
+                                                
                                                 torch.save({
                                                     'target_model_state_dict': self.target_model.state_dict(),
                                                     'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                                                 }, "GuineaBot3_LARGE_TARGET.pt")
 
-                                                self.update_optim(self.optimizer, self.model, x)
-                                                self.update_optim(self.target_optimizer, self.target_model, x2)
+                                                self.update_optim(self.optimizer, x)
+                                                self.update_optim(self.target_optimizer, x2)
 
                                                 self.memory = []
                                                 # Clear the GPU cache
@@ -1555,31 +1524,31 @@ try:
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
-                            if self.vebrose:
+                            if self.verbose:
                                 print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                             self.replay(batch_size, board)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Saving/Updating model weights")
                             x = self.devices[0]
                             x2 = self.devices[1]
                         
                             # Save the online model weights
-                            self.save_optim(self.optimizer)
+                            
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
-                            self.save_optim(self.target_optimizer)
+                            
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_TARGET.pt")
 
-                            self.update_optim(self.optimizer, self.model, x)
-                            self.update_optim(self.target_optimizer, self.target_model, x2)
+                            self.update_optim(self.optimizer, x)
+                            self.update_optim(self.target_optimizer, x2)
 
                             self.memory = []
                             gc.collect()
@@ -1612,32 +1581,32 @@ try:
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                             self.replay(batch_size, board)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Saving/Updating model weights")
                             x = self.devices[0]
                             x2 = self.devices[1]
                         
                             # Save the online model weights
-                            self.save_optim(self.optimizer)
+                            
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
-                            self.save_optim(self.target_optimizer)
+                            
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_TARGET.pt")
 
-                            self.update_optim(self.optimizer, self.model, x)
-                            self.update_optim(self.target_optimizer, self.target_model, x2)
+                            self.update_optim(self.optimizer, x)
+                            self.update_optim(self.target_optimizer, x2)
                             self.memory = []
                             # Clear the GPU cache
                             gc.collect()
@@ -1672,31 +1641,30 @@ try:
                         self.draws += 1
 
                         if batch_size <= len(self.memory):
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                             self.replay(batch_size, board)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Saving/Updating model weights")
                             x = self.devices[0]
                             x2 = self.devices[1]
                         
                             # Save the online model weights
-                            self.save_optim(self.optimizer)
+                            
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
-                            self.save_optim(self.target_optimizer)
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_TARGET.pt")
 
-                            self.update_optim(self.optimizer, self.model, x)
+                            self.update_optim(self.optimizer, x)
                             self.update_optim(self.target_optimizer, self.target_model, x2)
 
                             self.memory = []
@@ -1984,15 +1952,6 @@ try:
 
 except Exception as e:
     traceback.print_exc()
-
-
-
-
-        
-def random_move(board, counter):
-    counter = 0
-    action = random.choice(list(board.legal_moves))
-    board.push(action)
 
 if __name__ == "__main__":
     try:
