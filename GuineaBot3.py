@@ -195,7 +195,7 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))  # Assuming fc_input_size is 4096
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
