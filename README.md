@@ -17,7 +17,7 @@ In GuineaBot3 v4.2.0, PARALLEL-COMPACT EDITION, in this version, we have added p
 
 ## SETUP ##
 
-You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not requires a very good GPU that is cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
+You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not require very good GPUs, if you want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
