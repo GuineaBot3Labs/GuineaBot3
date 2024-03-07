@@ -83,14 +83,12 @@ try:
             self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
 
         def forward(self, x):
-            print(f"Input: {x}")
             if torch.isnan(x).any():
                 raise ValueError("NaN detected in input to forward")
             # Pass input through each convolutional layer
             for i, (conv, bn) in enumerate(zip(self.convs, self.conv_ins)):
                 x = F.leaky_relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                print(f"Value of x after conv layer {i}: {x}")
                 if torch.isnan(x).any():
                     raise ValueError(f"NaN detected after conv layer {i}")
             # Calculate the input size for the first fully connected layer
@@ -105,12 +103,10 @@ try:
             # Apply attention
             x, _ = self.attention1(x, x, x)
             x = self.dropout(x)
-            print(f"Value of x after attention 1: {x}")
             if torch.isnan(x).any():
                 raise ValueError("NaN detected after attention layer 1")
             x, _ = self.attention2(x, x, x)
             x = self.dropout(x)
-            print(f"Value of x after attention 2: {x}")
             if torch.isnan(x).any():
                 raise ValueError("NaN detected after attention layer 2")
             x = x.view(-1, 96, 1, 1)
@@ -121,7 +117,6 @@ try:
             for i, (fc, bn) in enumerate(zip(self.fcs, self.fc_lns)):
                 x = F.leaky_relu(bn(fc(x)))
                 x = self.dropout(x)
-                print(f"Value of x after fc layer {i}: {x}")
                 if torch.isnan(x).any():
                     raise ValueError(f"NaN detected after fully connected layer {i}")
 
@@ -213,14 +208,12 @@ try:
             self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
 
         def forward(self, x):
-            print(f"Input: {x}")
             if torch.isnan(x).any():
                 raise ValueError("NaN detected in input to forward")
             # Pass input through each convolutional layer
             for i, (conv, bn) in enumerate(zip(self.convs, self.conv_ins)):
                 x = F.leaky_relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
-                print(f"Value of x after conv layer {i}: {x}")
                 if torch.isnan(x).any():
                     raise ValueError(f"NaN detected after conv layer {i}")
             # Calculate the input size for the first fully connected layer
@@ -235,12 +228,10 @@ try:
             # Apply attention
             x, _ = self.attention1(x, x, x)
             x = self.dropout(x)
-            print(f"Value of x after attention 1: {x}")
             if torch.isnan(x).any():
                 raise ValueError("NaN detected after attention layer 1")
             x, _ = self.attention2(x, x, x)
             x = self.dropout(x)
-            print(f"Value of x after attention 2: {x}")
             if torch.isnan(x).any():
                 raise ValueError("NaN detected after attention layer 2")
             x = x.view(-1, 96, 1, 1)
@@ -251,7 +242,6 @@ try:
             for i, (fc, bn) in enumerate(zip(self.fcs, self.fc_lns)):
                 x = F.leaky_relu(bn(fc(x)))
                 x = self.dropout(x)
-                print(f"Value of x after fc layer {i}: {x}")
                 if torch.isnan(x).any():
                     raise ValueError(f"NaN detected after fully connected layer {i}")
 
@@ -1201,7 +1191,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.2.0, copyrighted (©) 2022 april Guinea_Pig_Lord")
+                print("GuineaBot3 v4.2.0 Parallel-Compact WHEEK WHEEK!! copyrighted (©) 2022 april Guinea_Pig_Lord")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1266,7 +1256,7 @@ try:
                     self.get_game(board)
                     board.turn = chess.WHITE
                     counter = 0
-                    message = "Hi! I'm {}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
+                    message = "Hi! I'm {}, powered by GuineaBOT-parallel-compact! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
                     try:
                         self.client.bots.post_message(self.game_id, message, spectator=True)
                     except Exception:
