@@ -100,5 +100,3 @@ def choose_move(board, depth):
     pool.join()
 
     return best_move
-
-    return best_move
