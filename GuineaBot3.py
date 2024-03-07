@@ -10,7 +10,6 @@ import copy
 from timeout_decorator import timeout
 from collections import OrderedDict
 import torch
-import TOM as T
 import traceback
 import torch.nn as nn
 import torch.nn.functional as F
@@ -32,6 +31,7 @@ import threading
 import random
 from collections import deque
 
+torch.autograd.set_detect_anomaly(True)
 try:
 
     class BreakLoopException(Exception):
@@ -40,16 +40,14 @@ try:
 
 
     class ChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=7):
+        def __init__(self, num_convs=3, num_fcs=7, dropout_rate=0.5):
             super(ChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
             in_channels = 96
-            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=6)
+            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=6)
+            self.dropout = nn.Dropout(dropout_rate)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -76,7 +74,7 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
@@ -84,14 +82,17 @@ try:
             # Output layer
             self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
 
-        
-
-
         def forward(self, x):
+            print(f"Input: {x}")
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected in input to forward")
             # Pass input through each convolutional layer
-            for conv, bn in zip(self.convs, self.conv_ins):
-                x = F.relu(bn(conv(x)))
+            for i, (conv, bn) in enumerate(zip(self.convs, self.conv_ins)):
+                x = F.leaky_relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
+                print(f"Value of x after conv layer {i}: {x}")
+                if torch.isnan(x).any():
+                    raise ValueError(f"NaN detected after conv layer {i}")
             # Calculate the input size for the first fully connected layer
             fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
 
@@ -103,22 +104,32 @@ try:
 
             # Apply attention
             x, _ = self.attention1(x, x, x)
+            x = self.dropout(x)
+            print(f"Value of x after attention 1: {x}")
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected after attention layer 1")
             x, _ = self.attention2(x, x, x)
-            x, _ = self.attention3(x, x, x)
-            x, _ = self.attention4(x, x, x)
-            x, _ = self.attention5(x, x, x)
-            
+            x = self.dropout(x)
+            print(f"Value of x after attention 2: {x}")
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected after attention layer 2")
             x = x.view(-1, 96, 1, 1)
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
-            for fc, bn in zip(self.fcs, self.fc_lns):
-                x = F.relu(bn(fc(x)))
+            for i, (fc, bn) in enumerate(zip(self.fcs, self.fc_lns)):
+                x = F.leaky_relu(bn(fc(x)))
+                x = self.dropout(x)
+                print(f"Value of x after fc layer {i}: {x}")
+                if torch.isnan(x).any():
+                    raise ValueError(f"NaN detected after fully connected layer {i}")
+
             # Output layer
             x = self.output_layer(x)
-
-
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected in output of forward")
+            
             return x
             
         def mutate(self):
@@ -159,16 +170,14 @@ try:
 
 
     class TargetChessNet(nn.Module):
-        def __init__(self, num_convs=3, num_fcs=7):
+        def __init__(self, num_convs=3, num_fcs=7, dropout_rate=0.5):
             super(TargetChessNet, self).__init__()
 
             num_output_actions = 4672  # Rough estimation of unique moves in chess
             in_channels = 96
-            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention3 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention4 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
-            self.attention5 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=12)
+            self.attention1 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=6)
+            self.attention2 = nn.MultiheadAttention(embed_dim=in_channels, num_heads=6)
+            self.dropout = nn.Dropout(dropout_rate)
 
             # Convolutional layers and their corresponding Batch Normalization layers
             self.convs = nn.ModuleList()
@@ -195,7 +204,7 @@ try:
             out_features = 4096
             for i in range(num_fcs):
                 if i == 0:
-                    self.fcs.append(nn.Linear(4096, out_features))  # Assuming fc_input_size is 4096
+                    self.fcs.append(nn.Linear(fc_input_size, out_features))
                 else:
                     self.fcs.append(nn.Linear(out_features, out_features))
                 self.fc_lns.append(nn.LayerNorm(out_features))
@@ -203,14 +212,17 @@ try:
             # Output layer
             self.output_layer = nn.Linear(out_features, num_output_actions)  # Assuming num_output_actions is 4672
 
-        
-
-
         def forward(self, x):
+            print(f"Input: {x}")
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected in input to forward")
             # Pass input through each convolutional layer
-            for conv, bn in zip(self.convs, self.conv_ins):
-                x = F.relu(bn(conv(x)))
+            for i, (conv, bn) in enumerate(zip(self.convs, self.conv_ins)):
+                x = F.leaky_relu(bn(conv(x)))
                 x = F.max_pool2d(x, kernel_size=2, stride=2)
+                print(f"Value of x after conv layer {i}: {x}")
+                if torch.isnan(x).any():
+                    raise ValueError(f"NaN detected after conv layer {i}")
             # Calculate the input size for the first fully connected layer
             fc_input_size = x.numel() // x.size(0)  # We divide by batch size to get the size for a single sample
 
@@ -222,22 +234,32 @@ try:
 
             # Apply attention
             x, _ = self.attention1(x, x, x)
+            x = self.dropout(x)
+            print(f"Value of x after attention 1: {x}")
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected after attention layer 1")
             x, _ = self.attention2(x, x, x)
-            x, _ = self.attention3(x, x, x)
-            x, _ = self.attention4(x, x, x)
-            x, _ = self.attention5(x, x, x)
-            
+            x = self.dropout(x)
+            print(f"Value of x after attention 2: {x}")
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected after attention layer 2")
             x = x.view(-1, 96, 1, 1)
             # Flatten output from convolutional layers
             x = x.view(x.size(0), -1)
 
             # Pass flattened output through fully connected layers
-            for fc, bn in zip(self.fcs, self.fc_lns):
-                x = F.relu(bn(fc(x)))
+            for i, (fc, bn) in enumerate(zip(self.fcs, self.fc_lns)):
+                x = F.leaky_relu(bn(fc(x)))
+                x = self.dropout(x)
+                print(f"Value of x after fc layer {i}: {x}")
+                if torch.isnan(x).any():
+                    raise ValueError(f"NaN detected after fully connected layer {i}")
+
             # Output layer
             x = self.output_layer(x)
-
-
+            if torch.isnan(x).any():
+                raise ValueError("NaN detected in output of forward")
+            
             return x
 
         def mutate(self):
@@ -280,7 +302,7 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.3, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, batch_size=270):
+        def __init__(self, alpha=0.01, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=True, batch_size=270):
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
@@ -304,12 +326,12 @@ try:
             self.memory = []
             self.move_rewards = []
             self.short_term_memory = []  # Initialize short_term_memory
-            self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.01)
-            self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.01)
+            self.optimizer = optim.Adam(self.model.parameters(), lr=alpha, weight_decay=0.1)
+            self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.1)
             self.loss_fn = nn.MSELoss()
             self.loss_fn2 = nn.MSELoss()
             self.session = requests.Session()
-            self.token = 'YOUR-API-TOKEN'
+            self.token = 'YOUR-API-KEY'
             self.name = 'YOUR-USERNAME'
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
             self.client = berserk.Client(berserk.TokenSession(self.token))
@@ -357,6 +379,12 @@ try:
             self.next_states = []
             self.actions = []
             self.current_move = False
+            self.optimizer.zero_grad()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.01)
+            self.optimizer.step()
+            self.target_optimizer.zero_grad()
+            torch.nn.utils.clip_grad_norm_(self.target_model.parameters(), max_norm=0.01)
+            self.target_optimizer.step()
 
 
             print("Using", torch.cuda.device_count(), "GPUs!")
@@ -368,11 +396,11 @@ try:
             model_weights_before = {name: param.clone() for name, param in self.model.named_parameters()}
     
             # Load the checkpoint on GPUs
-            self.checkpoint = torch.load(model_path1, map_location=torch.device(self.devices[0]))
+            self.checkpoint1 = torch.load(model_path1, map_location=torch.device(self.devices[0]))
             self.checkpoint2 = torch.load(model_path2, map_location=torch.device(self.devices[1]))
     
             # Load state dict for self.model and move it to self.devices[0]
-            self.model.load_state_dict(self.checkpoint['model_state_dict'], strict=False)
+            self.model.load_state_dict(self.checkpoint1['model_state_dict'], strict=False)
             self.model.train()
 
             # Load state dict for self.target_model and move it to self.devices[1]
@@ -598,7 +626,6 @@ try:
                         state = self.board_to_state(board2)
                         move_num += 1
                         move = self.choose_action(state, list(board2.legal_moves), board2, True, move_num)
-                        # print(f"Best move determined by GuineaBot3: {move}")
                         board2.push(move)
                         self.color = board2.turn
                         os.system('clear')
@@ -611,29 +638,17 @@ try:
                         print("Saving/Updating model weights")
                         x = self.devices[0]
                         x2 = self.devices[1]
-                        # Save the online model weights
-                        # 
-                        # self.update_optim(self.optimizer, x)
-                        # self.update_optim(self.target_optimizer, x2)
-                        print("Model Parameters:")
-                        for param in self.model.parameters():
-                            print(id(param))
-
-                        print("Optimizer Parameters:")
-                        for group in self.optimizer.param_groups:
-                            for p in group['params']:
-                                print(id(p))
 
                         torch.save({
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
-                        }, "GuineaBot3_COMPACT_ONLINE.pt")
+                        }, "GuineaBot3_LARGE_ONLINE.pt")
                         # Save the target model weights
                         # 
                         torch.save({
                             'target_model_state_dict': self.target_model.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_COMPACT_TARGET.pt")
+                        }, "GuineaBot3_LARGE_TARGET.pt")
                         
                         # Clear the GPU cache
                         gc.collect()
@@ -643,27 +658,18 @@ try:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.BLACK)
                         print("Saving/Updating model weights")
-                        # x = self.devices[0]
-                        # x2 = self.devices[1]
-                        
-                        # Save the online model weights
-                        # 
-                        # self.update_optim(self.optimizer,  x)
-                        # self.update_optim(self.target_optimizer, x2)
                         torch.save({
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
-                        }, "GuineaBot3_COMPACT_ONLINE.pt")
+                        }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                         # Save the target model weights
-                        # 
+
                         torch.save({
                             'target_model_state_dict': self.target_model.state_dict(),
                             'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                        }, "GuineaBot3_COMPACT_TARGET.pt")
+                        }, "GuineaBot3_LARGE_TARGET.pt")
 
-                        # self.update_optim(self.optimizer, x)
-                        # self.update_optim(self.target_optimizer, self.target_model, x2)
                         
                         self.memory_black = []
                         self.short_term_memory_black = []
@@ -718,14 +724,14 @@ try:
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_ONLINE.pt")
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
                             
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_TARGET.pt")
+                            }, "GuineaBot3_LARGE_TARGET.pt")
 
                             self.update_optim(self.optimizer, x)
                             self.update_optim(self.target_optimizer, x2)
@@ -748,14 +754,14 @@ try:
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_ONLINE.pt")
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
                             
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_TARGET.pt")
+                            }, "GuineaBot3_LARGE_TARGET.pt")
 
                             self.update_optim(self.optimizer, x)
                             self.update_optim(self.target_optimizer, x2)
@@ -872,7 +878,7 @@ try:
             state = state.to(x)
             action_index = self.move_to_index(board, action)
             target_f = self.model(state).detach().clone().to(x)
-            target_f = target_f.to(x).detach()  # Move target_f to cuda:0
+            target_f = target_f.to(x).detach()
             target_f[0, action_index] = reward
 
             loss = self.loss_fn(target_f, self.model(state))
@@ -1203,7 +1209,7 @@ try:
                 self.wins = 0
                 game = 1
                 if self.plot:
-                    matplotlib.use('Qt5Agg')
+                    matplotlib.use('Tkinter')
                     plt.ion()
                     plt.figure(figsize=(5,5))
                     plt.title('Rewards')
@@ -1222,7 +1228,7 @@ try:
                            sys.stdout.write('\b')
 
 
-                    self.load_model_weights_both("GuineaBot3_COMPACT_ONLINE.pt", "GuineaBot3_COMPACT_TARGET.pt")
+                    self.load_model_weights_both("GuineaBot3_LARGE_ONLINE.pt", "GuineaBot3_LARGE_TARGET.pt")
                     print('\nloaded model weights!')
                     time.sleep(1)
                 except Exception:
@@ -1260,7 +1266,7 @@ try:
                     self.get_game(board)
                     board.turn = chess.WHITE
                     counter = 0
-                    message = "Hi! I am {}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
+                    message = "Hi! I'm {}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
                     try:
                         self.client.bots.post_message(self.game_id, message, spectator=True)
                     except Exception:
@@ -1507,14 +1513,14 @@ try:
                                                 torch.save({
                                                     'model_state_dict': self.model.state_dict(),
                                                     'optimizer_state_dict': self.optimizer.state_dict(),
-                                                }, "GuineaBot3_COMPACT_ONLINE.pt")
+                                                }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                                                 # Save the target model weights
                                                 
                                                 torch.save({
                                                     'target_model_state_dict': self.target_model.state_dict(),
                                                     'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                                                }, "GuineaBot3_COMPACT_TARGET.pt")
+                                                }, "GuineaBot3_LARGE_TARGET.pt")
 
                                                 self.update_optim(self.optimizer, x)
                                                 self.update_optim(self.target_optimizer, x2)
@@ -1574,14 +1580,14 @@ try:
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_ONLINE.pt")
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
                             
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_TARGET.pt")
+                            }, "GuineaBot3_LARGE_TARGET.pt")
 
                             self.update_optim(self.optimizer, x)
                             self.update_optim(self.target_optimizer, x2)
@@ -1632,14 +1638,14 @@ try:
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_ONLINE.pt")
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
                             
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_TARGET.pt")
+                            }, "GuineaBot3_LARGE_TARGET.pt")
 
                             self.update_optim(self.optimizer, x)
                             self.update_optim(self.target_optimizer, x2)
@@ -1692,13 +1698,13 @@ try:
                             torch.save({
                                 'model_state_dict': self.model.state_dict(),
                                 'optimizer_state_dict': self.optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_ONLINE.pt")
+                            }, "GuineaBot3_LARGE_ONLINE.pt")
                         
                             # Save the target model weights
                             torch.save({
                                 'target_model_state_dict': self.target_model.state_dict(),
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                            }, "GuineaBot3_COMPACT_TARGET.pt")
+                            }, "GuineaBot3_LARGE_TARGET.pt")
 
                             self.update_optim(self.optimizer, x)
                             self.update_optim(self.target_optimizer, self.target_model, x2)
@@ -1770,12 +1776,12 @@ try:
 
             # Define piece values
             piece_values = {
-                chess.PAWN: 10,
-                chess.KNIGHT: 30,
-                chess.BISHOP: 30,
-                chess.ROOK: 50,
-                chess.QUEEN: 90,
-                chess.KING: 1000
+                chess.PAWN: 0.001,
+                chess.KNIGHT: 0.003,
+                chess.BISHOP: 0.003,
+                chess.ROOK: 0.005,
+                chess.QUEEN: 0.008,
+                chess.KING: 0
             }
 
             # Reward based on material balance
@@ -1787,66 +1793,42 @@ try:
             center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
             for square in center_squares:
                 if board.piece_at(square) and board.piece_at(square).color == color:
-                    reward += 20  # Reward for controlling each central square
+                    reward += 0.002  # Reward for controlling each central square
 
             # Piece mobility: Reward for the number of legal moves
-            reward += len(list(board.legal_moves)) * 0.1
+            reward += len(list(board.legal_moves)) * 0.00001
 
-            # Additional chess position considerations
-            if not selfplay:
-                # Checkmate
-                if board.is_checkmate():
-                    reward += 5000 if board.turn != color else -5000
-                # Stalemate or Insufficient Material
-                elif board.is_stalemate() or board.is_insufficient_material():
-                    reward -= 3000
-                # Fifty-move rule, Threefold or Fivefold repetition
-                elif board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
-                    reward -= 4000
-        
-                # King Safety: Penalize if the king is in check
-                if board.is_check():
-                    reward -= 50
-        
-                # Castling Rights
-                if board.has_castling_rights(color):
-                    reward += 30
+            # Checkmate
+            if board.is_checkmate():
+                reward += 5 if board.turn != color else -5
+            # Stalemate or Insufficient Material
+            elif board.is_stalemate() or board.is_insufficient_material():
+                reward -= 3
+            # Fifty-move rule, Threefold or Fivefold repetition
+            elif board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
+                reward -= 4
+    
+            # King Safety: Penalize if the king is in check
+            if board.is_check():
+                reward -= 0.005
+       
+            # Castling Rights
+            if board.has_castling_rights(color):
+                reward += 0.003
 
-                # Pawn Structure: Penalize for isolated and doubled pawns
-                for square in board.pieces(chess.PAWN, color):
-                    file = chess.square_file(square)
-                    adjacent_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]  # Ensure file indices are within valid range
+            # Pawn Structure: Penalize for isolated and doubled pawns
+            for square in board.pieces(chess.PAWN, color):
+                file = chess.square_file(square)
+                adjacent_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]  # Ensure file indices are within valid range
 
-                    # Check for isolated pawn
-                    if not any(board.pieces(chess.PAWN, color) & chess.BB_FILES[f] for f in adjacent_files):
-                        reward -= 10
+                # Check for isolated pawn
+                if not any(board.pieces(chess.PAWN, color) & chess.BB_FILES[f] for f in adjacent_files):
+                    reward -= 0.001
 
-                    # Check for doubled pawn
-                    if len(list(board.pieces(chess.PAWN, color) & chess.BB_FILES[file])) > 1:
-                        reward -= 5
+                # Check for doubled pawn
+                if len(list(board.pieces(chess.PAWN, color) & chess.BB_FILES[file])) > 1:
+                    reward -= 0.0005
 
-            else:
-                # Pawn Structure: Penalize for isolated and doubled pawns
-                for square in board.pieces(chess.PAWN, color):
-                    file = chess.square_file(square)
-                    adjacent_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]  # Ensure file indices are within valid range
-
-                    # Check for isolated pawn
-                    if not any(board.pieces(chess.PAWN, color) & chess.BB_FILES[f] for f in adjacent_files):
-                        reward -= 10
-
-                    # Check for doubled pawn
-                    if len(list(board.pieces(chess.PAWN, color) & chess.BB_FILES[file])) > 1:
-                        reward -= 5
-
-                if board.is_checkmate():
-                    reward += 1000
-                # Higher penalty for draw conditions to encourage decisive outcomes
-                elif board.is_stalemate() or board.is_insufficient_material() or board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
-                    reward += 3500
-
-            # Scale the reward
-            reward = reward * 0.01
             return reward
 
 
@@ -1999,4 +1981,3 @@ if __name__ == "__main__":
         agent.train(999999999999999999999, batch_size, board)
     except Exception:
         traceback.print_exc()
-        
