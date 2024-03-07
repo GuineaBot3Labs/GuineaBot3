@@ -11,7 +11,6 @@ import platform
 from timeout_decorator import timeout
 from collections import OrderedDict
 import torch
-import TOM as T
 import traceback
 import torch.nn as nn
 import torch.nn.functional as F
