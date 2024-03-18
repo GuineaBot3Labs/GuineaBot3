@@ -29,7 +29,7 @@ You will need to have python3.10 or python3.11 for this code, you can download i
     git clone https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot.git GuineaBot3
     cd GuineaBot3
 
-NOTE: You will have to do python3.10 from source, this is more difficult but can be rewarding. Follow the last 3 steps after installing from source.
+NOTE: You will have to compile python3.10 from source, this is more difficult but can be rewarding. Follow the last 3 steps after installing from source.
 
 ### WINDOWS ###
 for windows go to this <a href="https://python.org">website</a> and download the version you want, then download the zip on this page and extract it to your prefered location.
@@ -49,7 +49,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try out my more compact bot [here.][compact-link]
+finally you will have to have cuda installed. this is the hardest part because you need a GPU with 24 GBs of memory AND cuda compatible, plus, not every GPU is created equal and you will have to get the version of cuda your GPU is compatible with, pytorch also complains about incompatible versions and you will have to get your hands dirty. If you don't have this luxury you can always play against my bot <a href="https://lichess.org/@/GuineaBot3">here</a> or maybe try out my more compact bot [here.][compact-link]
 
 ## USAGE ##
 
