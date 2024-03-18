@@ -13,11 +13,11 @@ A lichess bot that self learns and improves over time. You can watch GuineaBot3C
 
 ## UPDATES ##
 ### COMPACT EDITION, WHEEK WHEEK!!! ###
-In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bill, it can run 4 instances on a single 12 GB GPU, adding that up it is only 3 GB allocation, very suitable for a CPU even, WHEEK WHEEK!!!
+In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bills, it can run 4 instances on a single 12 GB GPU, adding that up it is only 3 GB allocation, very suitable for a CPU even, WHEEK WHEEK!!!
 
 ## SETUP ##
 
-You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not requires a very good GPU that is cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
+You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not requires a very good GPU that is cuda compadible and multicore, if you want to use multiple cores or want to use a really big GPU, see it's big brother [here.][large-link]
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
@@ -48,7 +48,7 @@ for windows:
 
     py -m pip install -r requirements.txt
 
-finally, you can skip this part as this part is optional, if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my bot <a href="https://lichess.org/@/GuineaBot3COMPACT">here</a>, of course this is the big bot, so I will make a new account for the compact version soon! WHEEK WHEEK!!!
+finally, you can skip this part as this part is optional, if you do not have cuda installed and you want to run this on a GPU for training acceleration, you can download cuda on the official website along with the needed nvidia driver, this part is a pain, if you just want to see the thing working, you can always play against my compact bot <a href="https://lichess.org/@/GuineaBot3COMPACT">here</a>.
 
 ## USAGE ##
 
@@ -75,4 +75,4 @@ You do not need any pull requests here, however please be cautious, some could p
 [wiki-link]: ../../wiki
 [API-link]: https://lichess.org/api#tag/Bot
 [contribution-link]: ../../fork
-[compact-link]: ../../tree/compact
+[large-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot
