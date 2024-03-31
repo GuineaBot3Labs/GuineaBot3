@@ -73,7 +73,7 @@ and just like that you are up and running, WHEEK WHEEK!!!
 
 ### Contribution ###
 
-You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Fork this repository and make your modifications, be it compact, Crazyhouse, etc.
+You can contribute [here.][contribution-link] Fork this repository and make your modifications, be it compact, Crazyhouse, etc.
 
 [issue-link]: ../../issues/new
 [wiki-link]: ../../wiki
