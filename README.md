@@ -17,7 +17,7 @@ In GuineaBot3 v4.2.0, PARALLEL-COMPACT EDITION, in this version, we have added p
 
 ## SETUP ##
 
-You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not require very good GPUs, if you want to use a really big GPU, see it's big brother [here.](https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot)
+You can set up this bot very easily, just like it's big brother, however unlike it's big brother, it does not require very good GPUs, if you want to use a really big GPU, see it's big brother [here.][LARGE-Link]
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
@@ -69,10 +69,10 @@ and on windows on your 3 command prompts type:
     py challenge_bot.py
 ## Contribution ##
 
-You do not need any pull requests here, however please be cautious, some could probably do damage to your computer but do not let that discourage you, we want to push out those black hat hackers and keep this lab safe, you can contribute [here.][contribution-link] Feel free to fork as much as you want, just follow the rules of conduct, be it chaotic, broken, exploded, failure is only another achievement! Without failure, we wouldn't have learned coding, now let's learn AI, WHEEK WHEEK!!!
+You can contribute [here.][contribution-link] Feel free to fork this repository and make a pull request.
 
 [issue-link]: ../../issues/new
 [wiki-link]: ../../wiki
 [API-link]: https://lichess.org/api#tag/Bot
 [contribution-link]: ../../fork
-[compact-link]: ../../tree/compact
+[LARGE-Link]: ../../tree/GuineaBot3-original
