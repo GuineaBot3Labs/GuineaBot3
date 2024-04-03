@@ -13,7 +13,7 @@ A lichess bot that self learns and improves over time. You can watch GuineaBot3C
 
 ## UPDATES ##
 ### COMPACT EDITION, WHEEK WHEEK!!! ###
-In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bills, it can run 4 instances on a single 12 GB GPU, adding that up it is only 3 GB allocation, very suitable for a CPU even, WHEEK WHEEK!!!
+In GuineaBot3 v4.1.9, COMPACT EDITION, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. This edition does not add much to electricity bills, it can run 4 instances on a single 12 GB GPU, it only takes up approximately 3 GBs, very suitable for a CPU even, WHEEK WHEEK!!!
 
 ## SETUP ##
 
@@ -75,4 +75,4 @@ You do not need any pull requests here, however please be cautious, some could p
 [wiki-link]: ../../wiki
 [API-link]: https://lichess.org/api#tag/Bot
 [contribution-link]: ../../fork
-[large-link]: https://github.com/ethicalhacker7192/deep-GuineaBot3-lichess-bot
+[large-link]: ../../tree/GuineaBot3-original
