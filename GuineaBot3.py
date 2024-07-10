@@ -298,9 +298,9 @@ try:
             self.pgn = pgn
             self.vebrose = vebrose
             if torch.cuda.device_count() < 2: # Check (pun intended) if the user has at least two different cuda compatible devices.
-                print("Must have at least two cuda compatible different devices, if not, use the compact version.")
+                print("Must have at least two cuda compatible different devices, if not, use the compact version. Check the comment at line 303.")
                 exit(1)
-            # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1.
+            # Create a list of device IDs. This assumes you have 2 GPUs, with IDs 0 and 1. If you do not, please use the COMPACT version.
             self.devices = [torch.device('cuda:0'), torch.device('cuda:1')]
 
             # Create the online model and the target model
@@ -910,7 +910,7 @@ try:
 
                                 else:
                                         if self.vebrose:
-                                            print("DEBUG: NOT EXPLORATION MOVE")
+                                            print("DEBUG: EXPLOITATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
                                         state = state.to(x) # Move the state to device
@@ -953,6 +953,7 @@ try:
                                             board.push(best_move)
 
                                         del x, x2, state, q_values, target_q_values, reward, next_state, done, original_piece_type, legal_move_indices, legal_q_values, move_index
+                                        # Clear up memory
                                         return best_move
                                         
                 except KeyboardInterrupt:
@@ -1020,6 +1021,7 @@ try:
                             self.remember(state, move, reward, best_state, done, selfplay, board.turn)
                             board.push(best_move)
                             del x, x2, state, reward, next_state, done, original_piece_type
+                            # Clear up memory
                             return best_move
 
 
@@ -1196,7 +1198,7 @@ try:
         def train(self, episodes, batch_size, board):
             try:
                 print_acsii_art()
-                print("GuineaBot3 v4.2.0, copyrighted (©) 2022 april Guinea_Pig_Lord")
+                print("GuineaBot3 v4.2.1, copyrighted (©) 2022 april Guinea_Pig_Lord")
                 episode = 0
                 counter = 0
                 self.losses = 0
@@ -1261,7 +1263,7 @@ try:
                     self.get_game(board)
                     board.turn = chess.WHITE
                     counter = 0
-                    message = "Hi! I'm {}, powered by GuineaBOTv4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
+                    message = "Hi! I'm {}, powered by GuineaBOT4! I am a Learning model, please give feedback of my games, so my developer can improve me!".format(self.name)
                     try:
                         self.client.bots.post_message(self.game_id, message, spectator=True)
                     except Exception:
@@ -1309,17 +1311,16 @@ try:
                                 start_time = time.time()
                                 while True:
                                     try:
-                                        move = self.stream_game(board)
+                                        self.opponent_move = self.stream_game(board)
 
-                                        if move is not None:
-                                            self.opponent_move = move
+                                        if self.opponent_move is not None:
                                             try:
 
                                                 opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
                                                 opponent_move = chess.Move.from_uci(self.opponent_move)
                                                 board.turn = opponent_color
-
-                                                print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
+                                                if self.verbose:
+                                                    print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
                 
                                                 if self.opponent_move is None:
                                                     pass
@@ -1449,8 +1450,10 @@ try:
                       
                                     except Exception as e:
                                         if self.vebrose:
-                                            print(f"something happened, checking: {e}")
+                                            print(f"something happened, open an issue on GuineaBot3's repo: {e}")
                                             print(f"Caught an exception of type: {type(e)}")
+                                        
+                                        # Error handling
                                         if self.error == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
@@ -1464,6 +1467,9 @@ try:
                                                     self.game_id = None
                                                     self.game_over = True
                                                     break
+                                            exit(1)
+
+                                        # Draw handling
                                         elif self.is_draw == True:
                                             try:
                                                 self.client.bots.post_message(self.game_id, "Tie!!", spectator=False)
@@ -1482,7 +1488,7 @@ try:
 
                                
                                         elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
-                                            time.sleep(6)
+                                            time.sleep(6) # Ensures that the lichess API isn't overloaded.
                                         else:
                                             self.repeat_count = 0
                                             time.sleep(6)
@@ -1491,12 +1497,13 @@ try:
 
                                     # Check if time without move exceeds 10 minutes
                                     if time.time() - start_time > 600:
-                                        print("No move for 10 minutes, starting a new game...")
+                                        print("No move for 10 minutes, resigning due to no activity...")
                                         try:
+                                            self.client.bots.post_message(self.game_id, "No activity in the past 10 minutes.", spectator=False)
                                             self.client.bots.resign_game(self.game_id)
                                         except Exception as e:
                                             if batch_size <= len(self.memory):
-                                                print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                                                print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
                                                 self.replay(batch_size, board)
 
                                                 print("Saving/Updating model weights")
@@ -1556,17 +1563,19 @@ try:
                         self.lastfen = None
                         try:
                             self.client.bots.post_message(self.game_id, "Good try!", spectator = False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"Error occured, please open a github issue: {e}")
+                            exit(1)
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
                             if self.vebrose:
-                                print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                                print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
+                            
                             self.replay(batch_size, board)
                             if self.vebrose:
-
                                 print("Saving/Updating model weights")
+
                             x = self.devices[0]
                             x2 = self.devices[1]
                         
@@ -1584,11 +1593,11 @@ try:
                                 'target_optimizer_state_dict': self.target_optimizer.state_dict(),
                             }, "GuineaBot3_LARGE_TARGET.pt")
 
-                            self.update_optim(self.optimizer, x)
+                            self.update_optim(self.optimizer, x) # Updates optimizers to ensure no errors occur.
                             self.update_optim(self.target_optimizer, x2)
 
                             self.memory = []
-                            gc.collect()
+                            gc.collect() # Garbage collection
                             torch.cuda.empty_cache()
                         self.short_term_memory = []
                         self.game_over = True
@@ -1620,7 +1629,7 @@ try:
                         if batch_size <= len(self.memory):
                             if self.vebrose:
 
-                                print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                                print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
                             self.replay(batch_size, board)
                             if self.vebrose:
 
@@ -1673,20 +1682,21 @@ try:
                         episode += 1
                         try:
                             self.client.bots.post_message(self.game_id, "Tie!", spectator = False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print("Error occured, please open a github issue: {e}")
+                            exit(1)
                         self.draws += 1
 
                         if batch_size <= len(self.memory):
                             if self.vebrose:
-
                                 print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
+                            
                             self.replay(batch_size, board)
                             if self.vebrose:
-
                                 print("Saving/Updating model weights")
-                            x = self.devices[0]
-                            x2 = self.devices[1]
+                            
+                            x = self.devices[0] # Set device for online model
+                            x2 = self.devices[1] # Set device for target model
                         
                             # Save the online model weights
                             
@@ -1717,14 +1727,9 @@ try:
                         moves = 0
                         self.game_over = False
                         done = False
-        
-        
-
-
-
-                        
             except Exception:
                 traceback.print_exc()
+                exit(1)
 
         def board_to_state(self, board):
             state = torch.zeros(1, 14, 8, 8)  # Extend to 14 channels
@@ -1750,7 +1755,7 @@ try:
                     if board.is_attacked_by(color, square):
                         rank, file = divmod(square, 8)
                         state[0, 13, 7 - rank, file] += 1  # Increment if square is attacked by multiple pieces
-
+                        
             return state
 
 
@@ -1758,7 +1763,7 @@ try:
 
         def is_promotion(self, move):
             move = move.uci()
-            start, end = move[:2], move[2:]
+            start, end = move[:2], move[2:] # Basically gets the numbers of the uci move (eg., e1e2 becomes [1, 2])
             if start[1] == '7' and end[1] == '8':
                 return True
             elif start[1] == '2' and end[1] == '1':
@@ -1768,21 +1773,20 @@ try:
 
         def get_reward(self, board, color, move, original_piece_type, selfplay=False, move_num=0):
             reward = 0
-
             # Define piece values
             piece_values = {
-                chess.PAWN: 0.001,
-                chess.KNIGHT: 0.003,
-                chess.BISHOP: 0.003,
-                chess.ROOK: 0.005,
-                chess.QUEEN: 0.008,
+                chess.PAWN: 0.1,
+                chess.KNIGHT: 0.3,
+                chess.BISHOP: 0.3,
+                chess.ROOK: 0.5,
+                chess.QUEEN: 0.8,
                 chess.KING: 0
             }
 
             # Reward based on material balance
             for piece, value in piece_values.items():
                 reward += len(board.pieces(piece, color)) * value
-                reward -= len(board.pieces(piece, not color)) * value
+                reward -= len(board.pieces(piece, not color)) * 
 
             # Control of center squares
             center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
@@ -1790,27 +1794,22 @@ try:
                 if board.piece_at(square) and board.piece_at(square).color == color:
                     reward += 0.002  # Reward for controlling each central square
 
-            # Piece mobility: Reward for the number of legal moves
-            reward += len(list(board.legal_moves)) * 0.00001
-
+            # Piece mobility didn't make any sense, so it is now removed.
             # Checkmate
             if board.is_checkmate():
-                reward += 5 if board.turn != color else -5
+                reward += 5 if board.turn != color else -2
             # Stalemate or Insufficient Material
             elif board.is_stalemate() or board.is_insufficient_material():
-                reward -= 3
+                reward -= 2
             # Fifty-move rule, Threefold or Fivefold repetition
             elif board.can_claim_fifty_moves() or board.can_claim_threefold_repetition() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
-                reward -= 4
+                reward -= 2
     
             # King Safety: Penalize if the king is in check
             if board.is_check():
-                reward -= 0.005
+                reward -= 0.8
        
-            # Castling Rights
-            if board.has_castling_rights(color):
-                reward += 0.003
-
+            # Castling Rights didn't make sense as a reward so now it's removed.
             # Pawn Structure: Penalize for isolated and doubled pawns
             for square in board.pieces(chess.PAWN, color):
                 file = chess.square_file(square)
@@ -1818,11 +1817,11 @@ try:
 
                 # Check for isolated pawn
                 if not any(board.pieces(chess.PAWN, color) & chess.BB_FILES[f] for f in adjacent_files):
-                    reward -= 0.001
+                    reward -= 0.01
 
                 # Check for doubled pawn
                 if len(list(board.pieces(chess.PAWN, color) & chess.BB_FILES[file])) > 1:
-                    reward -= 0.0005
+                    reward -= 0.005
 
             return reward
 
@@ -1845,7 +1844,6 @@ try:
 
                      done = True
                      state = self.board_to_state(board)
-                     reward = -2000
                      os.system('clear')
                      self.print_board(board)
                      print("Draw!")
