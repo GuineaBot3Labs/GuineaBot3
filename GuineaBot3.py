@@ -292,11 +292,11 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.04, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=True, vebrose=False, batch_size=270):
+        def __init__(self, alpha=0.04, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=False, verbose=False, batch_size=270): # Change these to optimal settings (experiment)
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
-            self.vebrose = vebrose
+            self.verbose = verbose
             if torch.cuda.device_count() < 2: # Check (pun intended) if the user has at least two different cuda compatible devices.
                 print("Must have at least two cuda compatible different devices, if not, use the compact version. Check the comment at line 303.")
                 exit(1)
@@ -446,12 +446,12 @@ try:
                     if isinstance(v, torch.Tensor):
                         state[k] = v.cpu()
                     
-        @timeout(5)
+        @timeout(5) # Wrapper
         def stream_game(self, board):
             if self.game_over == False:
                 moves = self.client.games.stream_game_moves(self.game_id)
                 for line in moves:
-                    if self.vebrose:
+                    if self.verbose:
                         print(line)
 
                     self.backupfen = line.get('fen') # Get the backup FEN in case of invalid move error
@@ -473,7 +473,7 @@ try:
                         
                         
                         game_status = line.get('status', {}).get('name')  # Get the game status
-                        if self.vebrose:
+                        if self.verbose:
 
                             print("DEBUG: game status: ", game_status)
                         
@@ -481,32 +481,32 @@ try:
                          
                             print("checking checkpoint 2...")
                         if game_status == 'draw':
-                            if self.vebrose:
+                            if self.verbose:
                              
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_draw = True
-                        if self.vebrose:
+                        if self.verbose:
                         
                             print("checking checkpoint 3...")
                         if game_status == 'stalemate':
                             board.set_fen(self.backupfen)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.is_stalemate = True
                             self.is_draw = True
-                        if self.vebrose:
+                        if self.verbose:
                         
                             print("checking checkpoint 4...")
                         if game_status == 'aborted':
                             board.set_fen(self.backupfen)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
 
                         if game_status == 'outoftime':
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
@@ -514,22 +514,22 @@ try:
                             time.sleep(5)          
 
                         if game_status == 'resign':
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Game is over. Pausing for 5 seconds.")
                             self.game_over = True
                             self.is_draw = True
                             time.sleep(5)                  
-                        if self.vebrose:
+                        if self.verbose:
       
                             print("checking checkpoint 5...")
                         self.repeat_count += 1
-                        if self.vebrose:
+                        if self.verbose:
 
                             print(f"DEBUG: Repeat Count: {self.repeat_count}")
                         
                         if board.turn == self.color:
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Accidentally ran self.stream_game() though my turn...")
                             self.current_move = True
@@ -546,14 +546,14 @@ try:
                             self.game_over = True
 
                         else:
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("checking checkpoint 6...")
 
                                 print(f"DEBUG Opponent Move: {move}")
                                 print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
                             self.Last_Move = move
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("check complete!")
                             
@@ -568,7 +568,7 @@ try:
                 pass
 
                 
-        def disable_function(func):
+        def disable_function(func): # Wrapper to disable functions for debugging purposes
             @wraps(func)
             def wrapper(*args, **kwargs):
                 print(f"The function {func.__name__} is disabled.")
@@ -579,32 +579,29 @@ try:
             while True:
                 try:
                     response = self.session.get("https://lichess.org/api/account/playing")
+                    data = response.json()
                     if response.status_code != 200:
+                        if response.status_code == 401:
+                            print("Your token is non-existent. Please change the token at line 329.")
+                            exit(1)
                         print(f"Error getting games: {response.text}")
+                        print(f"Status code: {response.status_code}")
                         time.sleep(10)
-                        continue
+                        exit(1)
 
                     games = response.json()['nowPlaying']
-                    # while not games:
-                        # print("No games found, awaiting challenges (if any), or challenging a bot...")
-                        # self.handle_incoming_challenges()
-                        # time.sleep(600)
-                        # self.challenge_bot(board)
-                        # continue
-
                     for game in games:
                         if game['isMyTurn']:
                             self.game_id = game['gameId']
                             self.opponent_username = game['opponent']['username']
                             self.color = chess.WHITE if game['color'] == 'white' else chess.BLACK
                             self.my_color = "White" if self.color == chess.WHITE else "Black"
-
                             return
 
                     print("No games where it's my turn, sleeping...")
                     time.sleep(20)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Error occured, please open a new issue on github: {e}")
         
         def simulate_self_play(self, num_games):
                 self.memory_white = []
@@ -627,7 +624,7 @@ try:
                         self.print_board(board2)
                                
                     if len(self.memory_white) >= self.batch_size:
-                        if self.vebrose:
+                        if self.verbose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.WHITE)
                         print("Saving/Updating model weights")
@@ -649,7 +646,7 @@ try:
                         gc.collect()
                         torch.cuda.empty_cache()
                     if len(self.memory_black) >= self.batch_size:
-                        if self.vebrose:
+                        if self.verbose:
                             print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                         self.replay(batch_size, board, True, chess.BLACK)
                         print("Saving/Updating model weights")
@@ -877,7 +874,7 @@ try:
             target_f[0, action_index] = reward
 
             loss = self.loss_fn(target_f, self.model(state))
-            if self.vebrose:
+            if self.verbose:
                 print(f"Loss: {loss}")
             self.optimizer.zero_grad()
             loss.backward()
@@ -888,7 +885,7 @@ try:
             target_f2 = target_f2.to(x2)
             target_f2[0, action_index] = reward
             loss2 = self.loss_fn2(target_f2, self.target_model(state))
-            if self.vebrose:
+            if self.verbose:
                 print(f"Loss2: {loss2}")
             self.target_optimizer.zero_grad()
             loss2.backward()
@@ -902,14 +899,14 @@ try:
                 try:
                         while legal_moves:
                                 if torch.rand(1) <= self.epsilon:
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print("DEBUG: EXPLORATION MOVE")
                                         random_move = self.choose_actionrandom(state, legal_moves, board, selfplay)
                                         return random_move
                                         del x, x2
 
                                 else:
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print("DEBUG: EXPLOITATION MOVE")
                                         self.model.eval()
                                         self.target_model.eval()
@@ -937,7 +934,7 @@ try:
                                             reward = np.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
                                         self.move_rewards.append(reward)
                                         best_move = move
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print(f"DEBUG: Rewards: {self.move_rewards}")
                                         if self.plot:
                                             self.line.set_ydata(self.move_rewards)
@@ -972,7 +969,7 @@ try:
                         for i in range(11):
 
                             move = random.choice(list(board.legal_moves))
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"{i}st move from bot: {move}\n")
                             self.model.train()
                             done = board.is_game_over()
@@ -992,7 +989,7 @@ try:
                             board.pop()
                         
                         if best_move is not None:
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"DEBUG: Rewards: {self.move_rewards}")
                             if self.plot:
                                 self.line.set_ydata(self.move_rewards)
@@ -1008,7 +1005,7 @@ try:
                             return best_move
                         else:
                             move = best_move
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"DEBUG: Rewards: {self.move_rewards}")
                             if self.plot:
                                 self.line.set_ydata(self.move_rewards)
@@ -1033,7 +1030,7 @@ try:
             self.target_model.to(x2)
             self.update_optim(self.optimizer, x)
             self.update_optim(self.target_optimizer, x2)
-            if self.vebrose:
+            if self.verbose:
                 print("DEBUG: Starting replay function...")
                 if selfplay:
                     print("DEBUG: Running self play version")
@@ -1063,7 +1060,7 @@ try:
         
                         next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
                         if next_state_legal_q_values.nelement() == 0:
-                            if self.vebrose:
+                            if self.verbose:
                                 print("DEBUG: next_state_legal_q_values is empty")
                             continue
                         else:
@@ -1079,7 +1076,7 @@ try:
         
         
                             loss = self.loss_fn(target_f, self.model(state).to(x))
-                            if self.vebrose:
+                            if self.verbose:
                                 print(f"Loss: {loss}")
                             self.optimizer.zero_grad()
                             loss.backward()
@@ -1114,7 +1111,7 @@ try:
         
                             next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
                             if next_state_legal_q_values.nelement() == 0:
-                                if self.vebrose:
+                                if self.verbose:
                                     print("DEBUG: next_state_legal_q_values is empty")
                                 continue
                             else:
@@ -1130,7 +1127,7 @@ try:
         
         
                                 loss = self.loss_fn(target_f, self.model(state).to(x))
-                                if self.vebrose:
+                                if self.verbose:
                                     print(f"Loss: {loss}")
                                 self.optimizer.zero_grad()
                                 loss.backward()
@@ -1164,7 +1161,7 @@ try:
         
                             next_state_legal_q_values = torch.tensor([next_state_q_values[i] for i in next_state_legal_move_indices if i is not None and i < len(next_state_q_values)])
                             if next_state_legal_q_values.nelement() == 0:
-                                if self.vebrose:
+                                if self.verbose:
                                     print("DEBUG: next_state_legal_q_values is empty")
                                 continue
                             else:
@@ -1180,7 +1177,7 @@ try:
         
         
                                 loss = self.loss_fn(target_f, self.model(state).to(x))
-                                if self.vebrose:
+                                if self.verbose:
                                     print(f"Loss: {loss}")
                                 self.optimizer.zero_grad()
                                 loss.backward()
@@ -1190,7 +1187,7 @@ try:
         
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
-            if self.vebrose:
+            if self.verbose:
                 print("DONE!")
 
 
@@ -1248,8 +1245,8 @@ try:
                         try:
                             self.replay_pgn_and_learn(q)
                         except Exception as e:
-                            print(f"failed, just going to run untrained: \n")
-                            traceback.print_exc()
+                            print(f"failed, open a github issue: {e}")
+                            exit(1)
                     else:
                         print("Skipping...\n")
                 while episodes > episode:
@@ -1399,7 +1396,7 @@ try:
                                                          board.turn = self.color
                                                          
                                                     elif self.is_promotion(opponent_move):
-                                                        board.set(self.backup_fen)
+                                                        board.set_fen(self.backup_fen)
                                                         os.system('clear')
                                                         self.print_board(board)
                                                         if len(self.memory) >= batch_size:
@@ -1422,52 +1419,31 @@ try:
                                             except Exception:
                                                 if self.lastfen == self.backupfen:
                                                     pass
-            
                                                 else:
-                                                    board.set_fen(self.backupfen)
-                                                    self.lastfen = self.backupfen
-                                                    board.turn = self.color
-                                                    os.system('clear')
-                                                    self.print_board(board)
-                                                    if len(self.memory) >= batch_size:
-                                                        print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
-                                                    else:
                                                         print("this is acting up:")
-
                                                         traceback.print_exc()
-                                                        print("Amount of wins: ", str(self.wins))
-                                                        print("Amount of draws: ", str(self.draws))
-                                                        print("Amount of losses: ", str(self.losses))
-                                                        print("DEBUG: Memory size (long_term): ", len(self.memory))
-                                                        print("DEBUG: Memory left: ", batch_size - len(self.memory))
-                                                        print("DEBUG: Batch_Size: ", str(self.batch_size))
-                                                        print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
-                                                        print(f"DEBUG: Epsilon: {self.epsilon}")
-                                                    print(f"DEBUG: Loaded fen: {self.backupfen}")                                            
-                                            # self.get_opponent_move(board, counter)
+                                                        exit(1)
                                             break
 
                       
                                     except Exception as e:
-                                        if self.vebrose:
+                                        if self.verbose:
                                             print(f"something happened, open an issue on GuineaBot3's repo: {e}")
                                             print(f"Caught an exception of type: {type(e)}")
                                         
                                         # Error handling
                                         if self.error == True:
                                             try:
-                                                self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
-                                                self.client.bots.resign_game(self.game_id)
-                                            except Exception:
                                                 self.Last_Move = None
                                                 self.lastfen = None
-                                                try:
-                                                    self.client.bots.resign_game(self.game_id)
-                                                except Exception:
-                                                    self.game_id = None
-                                                    self.game_over = True
-                                                    break
-                                            exit(1)
+                                                self.client.bots.post_message(self.game_id, "I ran into a error, I am truly sorry...", spectator=False)
+                                                self.client.bots.resign_game(self.game_id)
+                                                self.game_id = None
+                                                self.game_over = True
+                                                break
+                                            except Exception as e:
+                                                print(f"Two errors in a row? Wow, that's unlucky: {e}")
+                                                exit(1)
 
                                         # Draw handling
                                         elif self.is_draw == True:
@@ -1480,12 +1456,7 @@ try:
                                                 self.repeat_count = 0
                                                 break
                                             except Exception as e:
-                                                self.Last_Move = None
-                                                self.lastfen = None
-                                                self.game_id = None
-                                                self.game_over = True
-                                                self.repeat_count = 0
-
+                                                print(f"Error occured, please open an issue on github: {e}")
                                
                                         elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
                                             time.sleep(6) # Ensures that the lichess API isn't overloaded.
@@ -1569,11 +1540,11 @@ try:
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
-                            if self.vebrose:
+                            if self.verbose:
                                 print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
                             
                             self.replay(batch_size, board)
-                            if self.vebrose:
+                            if self.verbose:
                                 print("Saving/Updating model weights")
 
                             x = self.devices[0]
@@ -1627,11 +1598,11 @@ try:
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
                             self.replay(batch_size, board)
-                            if self.vebrose:
+                            if self.verbose:
 
                                 print("Saving/Updating model weights")
                             x = self.devices[0]
@@ -1683,16 +1654,16 @@ try:
                         try:
                             self.client.bots.post_message(self.game_id, "Tie!", spectator = False)
                         except Exception as e:
-                            print("Error occured, please open a github issue: {e}")
+                            print(f"Error occured, please open a github issue: {e}")
                             exit(1)
                         self.draws += 1
 
                         if batch_size <= len(self.memory):
-                            if self.vebrose:
+                            if self.verbose:
                                 print("Now commencing training stage 2 (may take a while, read a book or watch tv or something, I really don't care.)")
                             
                             self.replay(batch_size, board)
-                            if self.vebrose:
+                            if self.verbose:
                                 print("Saving/Updating model weights")
                             
                             x = self.devices[0] # Set device for online model
@@ -1785,8 +1756,9 @@ try:
 
             # Reward based on material balance
             for piece, value in piece_values.items():
+                opponent_value = value * 0.8
                 reward += len(board.pieces(piece, color)) * value
-                reward -= len(board.pieces(piece, not color)) * 
+                reward -= len(board.pieces(piece, not color)) * opponent_value # This is done to ensure GuineaBot3 still tries to gain material
 
             # Control of center squares
             center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
@@ -1912,7 +1884,7 @@ try:
                          board.turn = self.color
                          
                     elif self.is_promotion(opponent_move):
-                        board.set(self.backup_fen)
+                        board.set_fen(self.backup_fen)
                         os.system('clear')
                         self.print_board(board)
                         if len(self.memory) >= batch_size:
