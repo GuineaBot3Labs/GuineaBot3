@@ -1,7 +1,7 @@
 import chess
 import multiprocessing
 
-# Define a simple evaluation function that counts material advantage.
+# A very randomly placed simple minimax algorithm with alpha-beta pruning for testing purposes with GuineaBot3.
 def evaluate_board(board):
     piece_values = {
         'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 20,
@@ -98,7 +98,5 @@ def choose_move(board, depth):
     # Close the multiprocessing pool.
     pool.close()
     pool.join()
-
-    return best_move
 
     return best_move
