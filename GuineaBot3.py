@@ -1342,7 +1342,7 @@ try:
                    
                                                     # Convert UCI string to chess.Move
                                                     opponent_move = chess.Move.from_uci(self.opponent_move)
-                                                    if verbose:
+                                                    if self.verbose
                                                         print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
 
                     
@@ -1781,7 +1781,7 @@ try:
                 opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
                 opponent_move = chess.Move.from_uci(self.opponent_move)
                 board.turn = opponent_color
-                if verbose:
+                if self.verbose
                      print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
                 
                 if self.opponent_move is None:
@@ -1812,13 +1812,13 @@ try:
                             print("Amount of wins: ", str(self.wins))
                             print("Amount of draws: ", str(self.draws))
                             print("Amount of losses: ", str(self.losses))
-                            if verbose:
+                            if self.verbose
                                 print("DEBUG: Memory size (long_term): ", len(self.memory))
                                 print("DEBUG: Memory left: ", batch_size - len(self.memory))
                                 print("DEBUG: Batch_Size: ", str(self.batch_size))
                                 print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
                                 print(f"DEBUG: Epsilon: {self.epsilon}")
-                        if verbose:
+                        if self.verbose
                             print(f"DEBUG: Loaded fen: {self.backupfen}")
                         self.repeat_count = 0
                     else:
@@ -1828,7 +1828,7 @@ try:
                    
                     # Convert UCI string to chess.Move
                     opponent_move = chess.Move.from_uci(self.opponent_move)
-                    if verbose:
+                    if self.verbose
                         print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
 
                     
