@@ -339,6 +339,7 @@ try:
             self.error = None
             self.is_draw = False
             self.is_stalemate = False
+            self.is_checkmate = False
             self.lastfen = None
             self.backupfen = None
             self.plot = True
@@ -351,29 +352,7 @@ try:
             self.next_states = []
             self.actions = []
             self.current_move = False
-
-
-            self.game_id = None
-            self.game_over = False
-            self.game_over_count = 0
-            self.opponent_username = None
-            self.color = None
-            self.error = None
-            self.is_draw = False
-            self.is_stalemate = False
-            self.lastfen = None
-            self.backupfen = None
-            self.plot = False
-            self.opponent_move = None
-            self.repeat_count = 0
-            self.Last_Move = None
-            self.my_color = None
-            self.best_reward = 0
             self.batch_size = batch_size
-            self.states = []
-            self.next_states = []
-            self.actions = []
-            self.current_move = False
             self.optimizer.zero_grad()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.01)
             self.optimizer.step()
@@ -538,6 +517,7 @@ try:
                         if self.repeat_count > 3:
                             if game_status == 'mate':
                                 self.game_over = True
+                                self.checkmate = True
                             else:
                                 pass
                         if self.repeat_count > 60:
@@ -1203,7 +1183,7 @@ try:
                 self.wins = 0
                 game = 1
                 if self.plot:
-                    matplotlib.use('Tkinter')
+                    matplotlib.use('Agg') # Change this to your prefered backend
                     plt.ion()
                     plt.figure(figsize=(5,5))
                     plt.title('Rewards')
@@ -1396,7 +1376,7 @@ try:
                                                          board.turn = self.color
                                                          
                                                     elif self.is_promotion(opponent_move):
-                                                        board.set_fen(self.backup_fen)
+                                                        board.set_fen(self.backupfen)
                                                         os.system('clear')
                                                         self.print_board(board)
                                                         if len(self.memory) >= batch_size:
@@ -1430,6 +1410,7 @@ try:
                                         if self.verbose:
                                             print(f"something happened, open an issue on GuineaBot3's repo: {e}")
                                             print(f"Caught an exception of type: {type(e)}")
+                                            exit(1)
                                         
                                         # Error handling
                                         if self.error == True:
@@ -1513,7 +1494,7 @@ try:
                             except Exception:
                                 pass    
  
-                    if board.is_checkmate() and board.turn != self.color:
+                    if board.is_checkmate() or self.checkmate and board.turn != self.color:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
@@ -1573,7 +1554,7 @@ try:
                         self.short_term_memory = []
                         self.game_over = True
 
-                    if board.is_checkmate() and board.turn == self.color:
+                    if board.is_checkmate() or self.checkmate and board.turn == self.color:
                         if type(move) != 'chess.Move':
                             move = chess.Move.from_uci(move)
                         done = True
@@ -1799,15 +1780,14 @@ try:
 
 
         def get_opponent_move(self, board, counter):
-
             # Get the latest game state from streamed_game
             try:
 
                 opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
                 opponent_move = chess.Move.from_uci(self.opponent_move)
                 board.turn = opponent_color
-
-                print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
+                if verbose:
+                     print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
                 
                 if self.opponent_move is None:
                     pass
@@ -1884,7 +1864,7 @@ try:
                          board.turn = self.color
                          
                     elif self.is_promotion(opponent_move):
-                        board.set_fen(self.backup_fen)
+                        board.set(self.backupfen)
                         os.system('clear')
                         self.print_board(board)
                         if len(self.memory) >= batch_size:
