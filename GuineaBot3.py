@@ -339,7 +339,7 @@ try:
             self.error = None
             self.is_draw = False
             self.is_stalemate = False
-            self.is_checkmate = False
+            self.checkmate = False
             self.lastfen = None
             self.backupfen = None
             self.plot = True
