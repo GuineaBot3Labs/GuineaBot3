@@ -1515,8 +1515,7 @@ try:
                         try:
                             self.client.bots.post_message(self.game_id, "Good try!", spectator = False)
                         except Exception as e:
-                            print(f"Error occured, please open a github issue: {e}")
-                            exit(1)
+                            pass
                         episode += 1
                         board.set_board_fen(chess.STARTING_BOARD_FEN)
                         if batch_size <= len(self.memory):
@@ -1630,8 +1629,7 @@ try:
                         try:
                             self.client.bots.post_message(self.game_id, "Tie!", spectator = False)
                         except Exception as e:
-                            print(f"Error occured, please open a github issue: {e}")
-                            exit(1)
+                            pass
                         self.draws += 1
 
                         if batch_size <= len(self.memory):
