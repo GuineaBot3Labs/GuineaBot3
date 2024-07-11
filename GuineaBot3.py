@@ -1342,7 +1342,8 @@ try:
                    
                                                     # Convert UCI string to chess.Move
                                                     opponent_move = chess.Move.from_uci(self.opponent_move)
-                                                    print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
+                                                    if verbose:
+                                                        print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
 
                     
                                                     opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
@@ -1437,7 +1438,7 @@ try:
                                                 self.repeat_count = 0
                                                 break
                                             except Exception as e:
-                                                print(f"Error occured, please open an issue on github: {e}")
+                                                pass # This is fine. *fire blazes around GuineaBot3*
                                
                                         elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
                                             time.sleep(6) # Ensures that the lichess API isn't overloaded.
@@ -1495,8 +1496,6 @@ try:
                                 pass    
  
                     if board.is_checkmate() or self.checkmate and board.turn != self.color:
-                        if type(move) != 'chess.Move':
-                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1555,8 +1554,6 @@ try:
                         self.game_over = True
 
                     if board.is_checkmate() or self.checkmate and board.turn == self.color:
-                        if type(move) != 'chess.Move':
-                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1614,8 +1611,6 @@ try:
                         self.game_over = True
 
                     elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw():
-                        if type(move) != 'chess.Move':
-                            move = chess.Move.from_uci(move)
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1817,12 +1812,14 @@ try:
                             print("Amount of wins: ", str(self.wins))
                             print("Amount of draws: ", str(self.draws))
                             print("Amount of losses: ", str(self.losses))
-                            print("DEBUG: Memory size (long_term): ", len(self.memory))
-                            print("DEBUG: Memory left: ", batch_size - len(self.memory))
-                            print("DEBUG: Batch_Size: ", str(self.batch_size))
-                            print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
-                            print(f"DEBUG: Epsilon: {self.epsilon}")
-                        print(f"DEBUG: Loaded fen: {self.backupfen}")
+                            if verbose:
+                                print("DEBUG: Memory size (long_term): ", len(self.memory))
+                                print("DEBUG: Memory left: ", batch_size - len(self.memory))
+                                print("DEBUG: Batch_Size: ", str(self.batch_size))
+                                print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
+                                print(f"DEBUG: Epsilon: {self.epsilon}")
+                        if verbose:
+                            print(f"DEBUG: Loaded fen: {self.backupfen}")
                         self.repeat_count = 0
                     else:
                         pass
@@ -1831,7 +1828,8 @@ try:
                    
                     # Convert UCI string to chess.Move
                     opponent_move = chess.Move.from_uci(self.opponent_move)
-                    print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
+                    if verbose:
+                        print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
 
                     
                     opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
