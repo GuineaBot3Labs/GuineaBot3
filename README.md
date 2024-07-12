@@ -7,14 +7,9 @@
 
   Copyright © 2022 GuineaPigLord. All rights reserved.
   
-# GuineaBot3
+# GuineaBot3-Experimental branch
 
-A lichess bot that self learns and improves over time. You can watch GuineaBot3's games <a href="https://lichess.org/@/GuineaBot3/tv">here</a>
-
-### WARNING: THIS CODE NEEDS A SUPER HIGH END GPU WHICH MAY NOT BE ACCESSIBLE FOR EVERYONE, HERE IS A MORE [COMPACT VERSION][compact-link], HOWEVER, FOR THIS BRANCH YOU WILL NEED A CUDA COMPATIBLE GPU WITH A MEMORY OF 24GBs. I USED A TESLA K80 FOR THIS, YOU WILL NEED TO INSTALL TORCH MANUALLY IF YOU WANT TO DO THIS WITH THE SAME GPU. ###
-
-## UPDATES ##
-In GuineaBot3 v4.1.9, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. Please be cautious as this project can severely add to your electricity bill.
+### WARNING: This branch is meant to be a branch for edits that may or may not cause errors and other complications. This is meant to test GuineaBot3 and vet it of any potential bugs/glitches. ###
 
 ## SETUP ##
 
