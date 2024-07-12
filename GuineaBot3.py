@@ -338,8 +338,7 @@ try:
             self.color = None
             self.error = None
             self.is_draw = False
-            self.is_stalemate = False
-            self.checkmate = False
+            self.resign = False
             self.lastfen = None
             self.backupfen = None
             self.plot = True
@@ -425,7 +424,6 @@ try:
                     if isinstance(v, torch.Tensor):
                         state[k] = v.cpu()
                     
-        @timeout(5) # Wrapper
         def stream_game(self, board):
             try:
                 if self.game_over == False:
@@ -439,12 +437,6 @@ try:
                         if self.backupfen == 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' and self.color == None:
                             self.repeat_count += 1
                             board.turn = self.color
-
-
-
-                        if self.repeat_count > 60:
-                            
-                            time.sleep(5)
                             
                         lm = next((m for m in possible if m is not None), None)  # Get the first non-None move
                         
@@ -455,91 +447,28 @@ try:
                             game_status = line.get('status', {}).get('name')  # Get the game status
                             if self.verbose:
                                 print("DEBUG: game status: ", game_status)
-                                print("checking checkpoint 1...")                         
-                                print("checking checkpoint 2...")
-
-                            if game_status == 'mate':
-                                self.game_over = True
-                                self.checkmate = True
-                                if self.verbose:
-                                    print("Game is over. Pausing for 5 seconds.")
-                                
-                            if game_status == 'draw':
-                                if self.verbose:                             
-                                    print("Game is over. Pausing for 5 seconds.")
-                                self.is_draw = True
-                            if self.verbose:
-                                print("checking checkpoint 3...")
-
-                            if game_status == 'stalemate':
-                                board.set_fen(self.backupfen)
-                                if self.verbose:
-                                    print("Game is over. Pausing for 5 seconds.")
-                                self.is_stalemate = True
-                            
-                                self.is_draw = True
-                            if self.verbose:
-                            
-                                print("checking checkpoint 4...")
-                            if game_status == 'aborted':
-                                board.set_fen(self.backupfen)
-                                if self.verbose:
-    
-                                    print("Game is over. Pausing for 5 seconds.")
-                                self.game_over = True
-    
-                            if game_status == 'outoftime':
-                                if self.verbose:
-
-                                    print("Game is over. Pausing for 5 seconds.")
-                                self.game_over = True
-                                self.is_draw = True
-                                time.sleep(5)          
-
-                            if game_status == 'resign':
-                                if self.verbose:
-    
-                                    print("Game is over. Pausing for 5 seconds.")
-                                self.game_over = True
-                                self.is_draw = True
-                                time.sleep(5)                  
-                            if self.verbose:
-      
-                                print("checking checkpoint 5...")
-                            self.repeat_count += 1
-                            if self.verbose:
-
-                                print(f"DEBUG: Repeat Count: {self.repeat_count}")
                         
                             if board.turn == self.color:
                                 if self.verbose:
-
                                     print("Accidentally ran self.stream_game() though my turn...")
+
                                 self.current_move = True
                                 return
-                            
-                            if self.repeat_count > 3:
-                                if game_status == 'mate':
-                                    self.game_over = True
-                                    self.checkmate = True
-                                    time.sleep(5)                  
-                                else:
-                                    pass
-                            else:
-                                if self.verbose:
-
-                                    print("checking checkpoint 6...")
-    
-                                    print(f"DEBUG Opponent Move: {move}")
-                                    print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
-                                self.Last_Move = move
-                                if self.verbose:
-
-                                    print("check complete!")
-                            
-                                self.opponent_move = move
-                            
+                            if game_status == 'resign':
+                                self.resign = True
+                                self.is_draw = True
+                                self.game_over = True
+                                
                                 return move
+                                
+                            if self.verbose:
+                                print(f"DEBUG Opponent Move: {move}")
+                                print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
+
+                            self.Last_Move = move                            
+                            self.opponent_move = move
+                            
+                            return move
             except Exception as e:
                 pass
 
@@ -577,7 +506,7 @@ try:
                             self.game_id = game['gameId']
                             self.opponent_username = game['opponent']['username']
                             self.color = chess.WHITE if game['color'] == 'white' else chess.BLACK
-                            self.my_color = "White" if self.color == chess.WHITE else "Black"
+                            self.my_color = "white" if self.color == chess.WHITE else "black"
                             return
 
                     print("No games where it's my turn, sleeping...")
@@ -1304,18 +1233,62 @@ try:
                                                 if self.opponent_move is None:
                                                     pass
                 
-                                                elif self.is_draw == True:
+                                                elif self.is_draw or self.resign:
+                                                    done = True
+                                                    state = self.board_to_state(board)
+                                                    reward = self.get_reward(board, self.color, move, original_piece_type)
+                                                    os.system('clear')
+                                                    self.print_board(board)
+                                                    self.draws += 1
+                                                    next_state = self.board_to_state(board)
+                                                    self.update_model(state, opponent_move, reward)
+                                                    self.remember(state, opponent_move, reward, next_state, done)
+                                                    print(f"Draw!")
 
-                                                     done = True
-                                                     state = self.board_to_state(board)
-                                                     reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
-                                                     os.system('clear')
-                                                     self.print_board(board)
-                                                     print("Draw!")
-                                                     self.draws += 1
-                                                     next_state = self.board_to_state(board)
-                                                     self.update_model(state, opponent_move, reward)
-                                                     self.remember(state, opponent_move, reward, next_state, done)
+                                                    game += 1
+                                                    self.draws += 1
+                                                    moves = 0
+                                                    self.Last_Move = None
+                                                    self.lastfen = None
+                                                    try:
+                                                        self.client.bots.post_message(self.game_id, "Draw!", spectator = False)
+                                                    except Exception as e:
+                                                        pass
+                                                    episode += 1
+                                                    board.set_board_fen(chess.STARTING_BOARD_FEN)
+                                                    if batch_size <= len(self.memory):
+                                                        if self.verbose:
+                                                            print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
+                                                        
+                                                        self.replay(batch_size, board)
+                                                        if self.verbose:
+                                                            print("Saving/Updating model weights")
+                            
+                                                        x = self.devices[0]
+                                                        x2 = self.devices[1]
+                        
+                                                        # Save the online model weights
+                                                        
+                                                        torch.save({
+                                                            'model_state_dict': self.model.state_dict(),
+                                                            'optimizer_state_dict': self.optimizer.state_dict(),
+                                                        }, "GuineaBot3_LARGE_ONLINE.pt")
+                        
+                                                        # Save the target model weights
+                                                        
+                                                        torch.save({
+                                                            'target_model_state_dict': self.target_model.state_dict(),
+                                                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
+                                                        }, "GuineaBot3_LARGE_TARGET.pt")
+
+                                                        self.update_optim(self.optimizer, x) # Updates optimizers to ensure no errors occur.
+                                                        self.update_optim(self.target_optimizer, x2)
+                            
+                                                        self.memory = []
+                                                        gc.collect() # Garbage collection
+                                                        torch.cuda.empty_cache()
+                                                    self.short_term_memory = []
+                                                    self.game_over = True
 
                                                 elif self.repeat_count > 20:
                                                     if self.backupfen != self.lastfen:
@@ -1413,10 +1386,11 @@ try:
                                         if self.verbose:
                                             print(f"something happened, open an issue on GuineaBot3's repo: {e}")
                                             print(f"Caught an exception of type: {type(e)}")
-                                            exit(1)
                                         
-                                        # Error handling
-                                        if self.error == True:
+
+                                        elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
+                                            time.sleep(6) # Ensures that the lichess API isn't overloaded.
+                                        else:
                                             try:
                                                 self.Last_Move = None
                                                 self.lastfen = None
@@ -1427,27 +1401,7 @@ try:
                                                 break
                                             except Exception as e:
                                                 print(f"Two errors in a row? Wow, that's unlucky: {e}")
-                                                exit(1)
-
-                                        # Draw handling
-                                        elif self.is_draw == True:
-                                            try:
-                                                self.client.bots.post_message(self.game_id, "Tie!!", spectator=False)
-                                                self.Last_Move = None
-                                                self.lastfen = None
-                                                self.game_id = None
-                                                self.game_over = True
-                                                self.repeat_count = 0
-                                                break
-                                            except Exception as e:
-                                                pass # This is fine. *fire blazes around GuineaBot3*
-                               
-                                        elif isinstance(e, berserk.exceptions.ResponseError) or '429 Client Error: Too Many Requests for url:' in str(e):
-                                            time.sleep(6) # Ensures that the lichess API isn't overloaded.
-                                        else:
-                                            self.repeat_count = 0
-                                            time.sleep(6)
-                                            
+                                                exit(1)                                            
                                     
 
                                     # Check if time without move exceeds 10 minutes
@@ -1497,7 +1451,7 @@ try:
                             except Exception:
                                 pass    
  
-                    if board.is_checkmate() or self.checkmate and board.turn == self.color:
+                    if board.is_checkmate() and board.turn != self.color:
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1554,7 +1508,7 @@ try:
                         self.short_term_memory = []
                         self.game_over = True
 
-                    if board.is_checkmate() or self.checkmate and board.turn != self.color:
+                    if board.is_checkmate() and board.turn == self.color:
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1611,7 +1565,7 @@ try:
                         self.short_term_memory = []
                         self.game_over = True
 
-                    elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw():
+                    elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw() or self.resign:
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
