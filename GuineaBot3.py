@@ -292,7 +292,7 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.04, gamma=0.95, epsilon=1.0, epsilon_min=0.001, epsilon_decay=0.995, pgn=False, verbose=False, batch_size=270): # Change these to optimal settings (experiment)
+        def __init__(self, alpha=0.1, gamma=0.95, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995, pgn=False, verbose=True, batch_size=270): # Change these to optimal settings (experiment)
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
@@ -427,119 +427,121 @@ try:
                     
         @timeout(5) # Wrapper
         def stream_game(self, board):
-            if self.game_over == False:
-                moves = self.client.games.stream_game_moves(self.game_id)
-                for line in moves:
-                    if self.verbose:
-                        print(line)
-
-                    self.backupfen = line.get('fen') # Get the backup FEN in case of invalid move error
-                    possible = [line.get(key) for key in ['lm', 'lastMove', 'LastMove', 'lastmove']]
-                    if self.backupfen == 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' and self.color == None:
-                        self.repeat_count += 1
-                        board.turn = self.color
-
-
-
-                    if self.repeat_count > 60:
-                        
-                        time.sleep(5)
-                        
-                    lm = next((m for m in possible if m is not None), None)  # Get the first non-None move
-                    
-                    # Process both 'lm' and 'LastMove' if they exist
-                    for move in [lm]:
-                        
-                        
-                        game_status = line.get('status', {}).get('name')  # Get the game status
+            try:
+                if self.game_over == False:
+                    moves = self.client.games.stream_game_moves(self.game_id)
+                    for line in moves:
                         if self.verbose:
+                            print(line)
 
-                            print("DEBUG: game status: ", game_status)
-                        
-                            print("checking checkpoint 1...")
-                         
-                            print("checking checkpoint 2...")
-                        if game_status == 'draw':
-                            if self.verbose:
-                             
-                                print("Game is over. Pausing for 5 seconds.")
-                            self.is_draw = True
-                        if self.verbose:
-                        
-                            print("checking checkpoint 3...")
-                        if game_status == 'stalemate':
-                            board.set_fen(self.backupfen)
-                            if self.verbose:
+                        self.backupfen = line.get('fen') # Get the backup FEN in case of invalid move error
+                        possible = [line.get(key) for key in ['lm', 'lastMove', 'LastMove', 'lastmove']]
+                        if self.backupfen == 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' and self.color == None:
+                            self.repeat_count += 1
+                            board.turn = self.color
 
-                                print("Game is over. Pausing for 5 seconds.")
-                            self.is_stalemate = True
-                            self.is_draw = True
-                        if self.verbose:
-                        
-                            print("checking checkpoint 4...")
-                        if game_status == 'aborted':
-                            board.set_fen(self.backupfen)
-                            if self.verbose:
 
-                                print("Game is over. Pausing for 5 seconds.")
-                            self.game_over = True
 
-                        if game_status == 'outoftime':
-                            if self.verbose:
-
-                                print("Game is over. Pausing for 5 seconds.")
-                            self.game_over = True
-                            self.is_draw = True
-                            time.sleep(5)          
-
-                        if game_status == 'resign':
-                            if self.verbose:
-
-                                print("Game is over. Pausing for 5 seconds.")
-                            self.game_over = True
-                            self.is_draw = True
-                            time.sleep(5)                  
-                        if self.verbose:
-      
-                            print("checking checkpoint 5...")
-                        self.repeat_count += 1
-                        if self.verbose:
-
-                            print(f"DEBUG: Repeat Count: {self.repeat_count}")
-                        
-                        if board.turn == self.color:
-                            if self.verbose:
-
-                                print("Accidentally ran self.stream_game() though my turn...")
-                            self.current_move = True
-                            return
+                        if self.repeat_count > 60:
                             
-                        if self.repeat_count > 3:
+                            time.sleep(5)
+                            
+                        lm = next((m for m in possible if m is not None), None)  # Get the first non-None move
+                        
+                        # Process both 'lm' and 'LastMove' if they exist
+                        for move in [lm]:
+                            
+                        
+                            game_status = line.get('status', {}).get('name')  # Get the game status
+                            if self.verbose:
+                                print("DEBUG: game status: ", game_status)
+                                print("checking checkpoint 1...")                         
+                                print("checking checkpoint 2...")
+
                             if game_status == 'mate':
                                 self.game_over = True
                                 self.checkmate = True
+                                if self.verbose:
+                                    print("Game is over. Pausing for 5 seconds.")
+                                
+                            if game_status == 'draw':
+                                if self.verbose:                             
+                                    print("Game is over. Pausing for 5 seconds.")
+                                self.is_draw = True
+                            if self.verbose:
+                                print("checking checkpoint 3...")
+
+                            if game_status == 'stalemate':
+                                board.set_fen(self.backupfen)
+                                if self.verbose:
+                                    print("Game is over. Pausing for 5 seconds.")
+                                self.is_stalemate = True
+                            
+                                self.is_draw = True
+                            if self.verbose:
+                            
+                                print("checking checkpoint 4...")
+                            if game_status == 'aborted':
+                                board.set_fen(self.backupfen)
+                                if self.verbose:
+    
+                                    print("Game is over. Pausing for 5 seconds.")
+                                self.game_over = True
+    
+                            if game_status == 'outoftime':
+                                if self.verbose:
+
+                                    print("Game is over. Pausing for 5 seconds.")
+                                self.game_over = True
+                                self.is_draw = True
+                                time.sleep(5)          
+
+                            if game_status == 'resign':
+                                if self.verbose:
+    
+                                    print("Game is over. Pausing for 5 seconds.")
+                                self.game_over = True
+                                self.is_draw = True
+                                time.sleep(5)                  
+                            if self.verbose:
+      
+                                print("checking checkpoint 5...")
+                            self.repeat_count += 1
+                            if self.verbose:
+
+                                print(f"DEBUG: Repeat Count: {self.repeat_count}")
+                        
+                            if board.turn == self.color:
+                                if self.verbose:
+
+                                    print("Accidentally ran self.stream_game() though my turn...")
+                                self.current_move = True
+                                return
+                            
+                            if self.repeat_count > 3:
+                                if game_status == 'mate':
+                                    self.game_over = True
+                                    self.checkmate = True
+                                    time.sleep(5)                  
+                                else:
+                                    pass
                             else:
-                                pass
-                        if self.repeat_count > 60:
-                            time.sleep(5)
-                            self.error = True
-                            self.game_over = True
+                                if self.verbose:
 
-                        else:
-                            if self.verbose:
+                                    print("checking checkpoint 6...")
+    
+                                    print(f"DEBUG Opponent Move: {move}")
+                                    print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
+                                self.Last_Move = move
+                                if self.verbose:
 
-                                print("checking checkpoint 6...")
-
-                                print(f"DEBUG Opponent Move: {move}")
-                                print(f"DEBUG Last Move From Opponent: {self.Last_Move}")
-                            self.Last_Move = move
-                            if self.verbose:
-
-                                print("check complete!")
+                                    print("check complete!")
                             
-                            self.opponent_move = move
+                                self.opponent_move = move
                             
-                            return move
+                                return move
+            except Exception as e:
+                pass
 
         def make_move(self, move):
             try:
@@ -1495,7 +1497,7 @@ try:
                             except Exception:
                                 pass    
  
-                    if board.is_checkmate() or self.checkmate and board.turn != self.color:
+                    if board.is_checkmate() or self.checkmate and board.turn == self.color:
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
@@ -1552,7 +1554,7 @@ try:
                         self.short_term_memory = []
                         self.game_over = True
 
-                    if board.is_checkmate() or self.checkmate and board.turn == self.color:
+                    if board.is_checkmate() or self.checkmate and board.turn != self.color:
                         done = True
                         state = self.board_to_state(board)
                         reward = self.get_reward(board, self.color, move, original_piece_type)
