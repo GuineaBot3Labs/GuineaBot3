@@ -1,35 +1,34 @@
-import berserk
-import requests
 import chess
-import chess.pgn
-import io
-from tqdm import tqdm
-from art import print_acsii_art
-import chess.engine
 import copy
-from timeout_decorator import timeout
-from collections import OrderedDict
+import gc
+import io
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pickle
+import random
+import requests
+import sys
+import threading
+import time
 import torch
-import traceback
+import torch.distributed as dist
+import torch.multiprocessing as mp
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import traceback
-import numpy as np
-from IPython.display import display, clear_output
-import matplotlib.pyplot as plt
-import matplotlib
-import torch.multiprocessing as mp
-import torch.distributed as dist
-import os
-import gc
-import pickle
-import time
-import sys
+from art import print_acsii_art
+from collections import deque, OrderedDict
 from functools import wraps
-import threading
-import random
-from collections import deque
+from IPython.display import display, clear_output
+from timeout_decorator import timeout
+from tqdm import tqdm
+from lichess_bot import LichessBot
+import berserk
+import chess.engine
+import chess.pgn
+import torch.nn.functional as F
 
 torch.autograd.set_detect_anomaly(True)
 try:
@@ -292,7 +291,7 @@ try:
             self.to(device)
 
     class DQNAgent:
-        def __init__(self, alpha=0.1, gamma=0.95, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995, pgn=False, verbose=True, batch_size=270): # Change these to optimal settings (experiment)
+        def __init__(self, alpha=0.1, gamma=0.95, epsilon=0.4, epsilon_min=0.001, epsilon_decay=0.995, pgn=False, verbose=False, batch_size=270): # Change these to optimal settings (experiment)
             self.alpha = alpha
             self.gamma = gamma
             self.pgn = pgn
@@ -325,12 +324,15 @@ try:
             self.target_optimizer = optim.Adam(self.target_model.parameters(), lr=alpha, weight_decay=0.1)
             self.loss_fn = nn.MSELoss()
             self.loss_fn2 = nn.MSELoss()
-            self.session = requests.Session()
             self.token = 'YOUR-API-KEY'
             self.name = 'YOUR-USERNAME'
+            self.session = requests.Session()
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
-            self.client = berserk.Client(berserk.TokenSession(self.token))
-
+            self.tokensession = berserk.TokenSession(self.token)
+            self.client = berserk.Client(session=self.tokensession)
+            self.waiter = LichessBot(self.session, self.client)
+            self.waiter_thread = threading.Thread(target=self.waiter.start)
+            self.waiter_thread.start()
             self.game_id = None
             self.game_over = False
             self.game_over_count = 0
@@ -1187,7 +1189,7 @@ try:
 
 
                     while not board.is_checkmate() and not board.is_game_over() and not board.is_stalemate() and not board.is_insufficient_material() and not board.is_seventyfive_moves() and not board.is_variant_draw() and not self.game_over:
-                        if board.turn == self.color:
+                        if board.turn == self.color or self.current_move:
                             self.repeat_count = 0
                             if len(self.move_rewards) >= 200:
                                 self.move_rewards = []
@@ -1233,63 +1235,6 @@ try:
                                                 if self.opponent_move is None:
                                                     pass
                 
-                                                elif self.is_draw or self.resign:
-                                                    done = True
-                                                    state = self.board_to_state(board)
-                                                    reward = self.get_reward(board, self.color, move, original_piece_type)
-                                                    os.system('clear')
-                                                    self.print_board(board)
-                                                    self.draws += 1
-                                                    next_state = self.board_to_state(board)
-                                                    self.update_model(state, opponent_move, reward)
-                                                    self.remember(state, opponent_move, reward, next_state, done)
-                                                    print(f"Draw!")
-
-                                                    game += 1
-                                                    self.draws += 1
-                                                    moves = 0
-                                                    self.Last_Move = None
-                                                    self.lastfen = None
-                                                    try:
-                                                        self.client.bots.post_message(self.game_id, "Draw!", spectator = False)
-                                                    except Exception as e:
-                                                        pass
-                                                    episode += 1
-                                                    board.set_board_fen(chess.STARTING_BOARD_FEN)
-                                                    if batch_size <= len(self.memory):
-                                                        if self.verbose:
-                                                            print("Now commencing training stage 2 (may take a while, read a book, watch tv or something, I really don't care.)")
-                                                        
-                                                        self.replay(batch_size, board)
-                                                        if self.verbose:
-                                                            print("Saving/Updating model weights")
-                            
-                                                        x = self.devices[0]
-                                                        x2 = self.devices[1]
-                        
-                                                        # Save the online model weights
-                                                        
-                                                        torch.save({
-                                                            'model_state_dict': self.model.state_dict(),
-                                                            'optimizer_state_dict': self.optimizer.state_dict(),
-                                                        }, "GuineaBot3_LARGE_ONLINE.pt")
-                        
-                                                        # Save the target model weights
-                                                        
-                                                        torch.save({
-                                                            'target_model_state_dict': self.target_model.state_dict(),
-                                                            'target_optimizer_state_dict': self.target_optimizer.state_dict(),
-                                                        }, "GuineaBot3_LARGE_TARGET.pt")
-
-                                                        self.update_optim(self.optimizer, x) # Updates optimizers to ensure no errors occur.
-                                                        self.update_optim(self.target_optimizer, x2)
-                            
-                                                        self.memory = []
-                                                        gc.collect() # Garbage collection
-                                                        torch.cuda.empty_cache()
-                                                    self.short_term_memory = []
-                                                    self.game_over = True
-
                                                 elif self.repeat_count > 20:
                                                     if self.backupfen != self.lastfen:
                                                         board.set_fen(self.backupfen)
@@ -1457,7 +1402,6 @@ try:
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
-                        self.draws += 1
                         next_state = self.board_to_state(board)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
@@ -1514,7 +1458,6 @@ try:
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
-                        self.draws += 1
                         next_state = self.board_to_state(board)
                         self.update_model(state, opponent_move, reward)
                         self.remember(state, opponent_move, reward, next_state, done)
@@ -1565,9 +1508,10 @@ try:
                         self.short_term_memory = []
                         self.game_over = True
 
-                    elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw() or self.resign:
+                    elif board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.can_claim_threefold_repetition() or board.is_variant_draw() or self.is_draw:
                         done = True
                         state = self.board_to_state(board)
+                        board.piece_at(move.from_square).piece_type if board.piece_at(move.from_square) else None
                         reward = self.get_reward(board, self.color, move, original_piece_type)
                         os.system('clear')
                         self.print_board(board)
@@ -1581,12 +1525,13 @@ try:
                         moves = 0
                         self.Last_Move = None
                         self.lastfen = None
+                        self.is_draw = False
+                        self.resign = False
                         episode += 1
                         try:
                             self.client.bots.post_message(self.game_id, "Tie!", spectator = False)
                         except Exception as e:
                             pass
-                        self.draws += 1
 
                         if batch_size <= len(self.memory):
                             if self.verbose:
@@ -1726,144 +1671,6 @@ try:
                     reward -= 0.005
 
             return reward
-
-
-        def get_opponent_move(self, board, counter):
-            # Get the latest game state from streamed_game
-            try:
-
-                opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
-                opponent_move = chess.Move.from_uci(self.opponent_move)
-                board.turn = opponent_color
-                if self.verbose:
-                     print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
-                
-                if self.opponent_move is None:
-                    pass
-                
-                elif self.is_draw == True:
-
-                     done = True
-                     state = self.board_to_state(board)
-                     os.system('clear')
-                     self.print_board(board)
-                     print("Draw!")
-                     self.draws += 1
-                     next_state = self.board_to_state(board)
-                     self.update_model(state, opponent_move, reward)
-                     self.remember(state, opponent_move, reward, next_state, done)
-
-                elif self.repeat_count > 20:
-                    if self.backupfen != self.lastfen:
-                        board.set_fen(self.backupfen)
-                        self.lastfen = self.backupfen
-                        board.turn = self.color
-                        os.system('clear')
-                        self.print_board(board)
-                        if len(self.memory) >= batch_size:
-                            print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
-                        else:
-                            print("Amount of wins: ", str(self.wins))
-                            print("Amount of draws: ", str(self.draws))
-                            print("Amount of losses: ", str(self.losses))
-                            if self.verbose:
-                                print("DEBUG: Memory size (long_term): ", len(self.memory))
-                                print("DEBUG: Memory left: ", batch_size - len(self.memory))
-                                print("DEBUG: Batch_Size: ", str(self.batch_size))
-                                print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
-                                print(f"DEBUG: Epsilon: {self.epsilon}")
-                        if self.verbose:
-                            print(f"DEBUG: Loaded fen: {self.backupfen}")
-                        self.repeat_count = 0
-                    else:
-                        pass
-
-                else:
-                   
-                    # Convert UCI string to chess.Move
-                    opponent_move = chess.Move.from_uci(self.opponent_move)
-                    if self.verbose:
-                        print(f"DEBUG: RESULT OF CONVERTION: {opponent_move}")
-
-                    
-                    opponent_color = chess.BLACK if self.color == chess.WHITE else chess.WHITE
-                    board.turn = opponent_color
-
-                    if opponent_move in board.legal_moves:
-
-                         done = board.is_game_over()
-                         state = self.board_to_state(board)
-                         original_piece_type = board.piece_at(opponent_move.from_square).piece_type if board.piece_at(opponent_move.from_square) else None
-                         board.push(opponent_move)
-                         reward = self.get_reward(board, opponent_color, opponent_move, original_piece_type)
-                         os.system('clear')
-                         self.print_board(board)
-                         if len(self.memory) >= batch_size:
-                             print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
-                         else:
-                             print("Amount of wins: ", str(self.wins))
-                             print("Amount of draws: ", str(self.draws))
-                             print("Amount of losses: ", str(self.losses))
-                             print("DEBUG: Memory size (long_term): ", len(self.memory))
-                             print("DEBUG: Memory left: ", batch_size - len(self.memory))
-                             print("DEBUG: Batch_Size: ", str(self.batch_size))
-                             print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
-                             print(f"DEBUG: Epsilon: {self.epsilon}") 
- 
-                         next_state = self.board_to_state(board)
-                         self.model_learn(state, opponent_move, reward)
-                         self.remember(state, opponent_move, reward, next_state, done)
-                         board.turn = self.color
-                         
-                    elif self.is_promotion(opponent_move):
-                        board.set(self.backupfen)
-                        os.system('clear')
-                        self.print_board(board)
-                        if len(self.memory) >= batch_size:
-                            print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
-                        else:
-                            print("Amount of wins: ", str(self.wins))
-                            print("Amount of draws: ", str(self.draws))
-                            print("Amount of losses: ", str(self.losses))
-                            print("DEBUG: Memory size (long_term): ", len(self.memory))
-                            print("DEBUG: Memory left: ", batch_size - len(self.memory))
-                            print("DEBUG: Batch_Size: ", str(self.batch_size))
-                            print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
-                            print(f"DEBUG: Epsilon: {self.epsilon}") 
-
-                    
-                    else:
-                        time.sleep(2.5)
-                            
-     
-            except Exception:
-                if self.lastfen == self.backupfen:
-                    pass
-            
-                else:
-                    board.set_fen(self.backupfen)
-                    self.lastfen = self.backupfen
-                    board.turn = self.color
-                    os.system('clear')
-                    self.print_board(board)
-                    if len(self.memory) >= batch_size:
-                        print("WARNING: No more memory, training stage 2 is suspended until the end of the game")
-                    else:
-                        print("this is acting up:")
-
-                        traceback.print_exc()
-                        print("Amount of wins: ", str(self.wins))
-                        print("Amount of draws: ", str(self.draws))
-                        print("Amount of losses: ", str(self.losses))
-                        print("DEBUG: Memory size (long_term): ", len(self.memory))
-                        print("DEBUG: Memory left: ", batch_size - len(self.memory))
-                        print("DEBUG: Batch_Size: ", str(self.batch_size))
-                        print("DEBUG: Color: ", self.color, " (", self.my_color, ")")
-                        print(f"DEBUG: Epsilon: {self.epsilon}")
-                    print(f"DEBUG: Loaded fen: {self.backupfen}")
-            
-
-
 
 except Exception as e:
     traceback.print_exc()
