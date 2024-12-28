@@ -14,11 +14,14 @@ A lichess bot that self learns and improves over time. You can watch GuineaBot3'
 ### WARNING: THIS CODE NEEDS A SUPER HIGH END GPU WHICH MAY NOT BE ACCESSIBLE FOR EVERYONE, HERE IS A MORE [COMPACT VERSION][compact-link], HOWEVER, FOR THIS BRANCH YOU WILL NEED A CUDA COMPATIBLE GPU WITH A MEMORY OF 24GBs. I USED A TESLA K80 FOR THIS, YOU WILL NEED TO INSTALL TORCH MANUALLY IF YOU WANT TO DO THIS WITH THE SAME GPU. ###
 
 ## UPDATES ##
-In GuineaBot3 v4.1.9, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. Please be cautious as this project can severely add to your electricity bill.
+In GuineaBot v4.1.9, we have added self play capability and pgn replay, you can vary how many games to self play within the replay_from_pgn() function, we have found that tinkering with the settings is the best approach, just like 3d printing, this model needs to be fine tuned. We have also found that pgn files should be under 10,000 games unless you want a super high end grandmaster that takes weeks or even months to train. Please be cautious as this project can severely add to your electricity bill.
+
+## FUTURE UPDATES ##
+In GuineaBot v4.2, we are making major changes, which will make GuineaBot much more compact, and will no longer need alternate versions for singular and multi-GPU performance, and it will hopefully work on 1 GB of memory. The following update will also introduce a GAN (Generative Adversarial Network,) to predict opponent actions and "look-ahead" into the future. Additionally, GuineaBot will no longer have a static reward function as rewards will be determined via an actor-critic policy.
 
 ## SETUP ##
 
-You can set up this bot very easily, it requires a very good GPU cuda compadible and multicore, you can vary how many cores you want to use.
+You can set up this bot easily, it requires a powerful GPU compatible with CUDA, you can vary how many GPUs you want to use.
 
 You will need to have python3.10 or python3.11 for this code, you can download it as shown down below:
 
